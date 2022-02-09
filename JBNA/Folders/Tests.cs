@@ -18,7 +18,7 @@ namespace JBNA.Folders
             int populationSize = 100;
             int maxTime = 11;
             var random = new Random(1);
-            var specs = new CistronSpec_LNCE[] { new CistronSpec_LNCE { Spec = NumberSpec.CreateUniformFloatFactory(0, 10) } };
+            var specs = new CistronSpec[] { new CistronSpec { Interpreter = NumberSpec.CreateUniformFloatFactory(0, 10) } };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random);
             var genome = RandomGeneration.CreateRandomHaploid(nature, random);
 
@@ -41,7 +41,7 @@ namespace JBNA.Folders
             int populationSize = 100;
             int maxTime = 20;
             var random = new Random(1);
-            var specs = new CistronSpec_LNCE[] { new CistronSpec_LNCE() { Spec =  FunctionSpecFactory.CreateFourierFunction() } };
+            var specs = new CistronSpec[] { new CistronSpec() { Interpreter =  FunctionSpecFactory.CreateFourierFunction() } };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random);
             var genome = RandomGeneration.CreateRandomHaploid(nature, random);
 

@@ -16,28 +16,28 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
     internal const float DefaultMutationRateStdDev = DefaultMutationRate / 4;
     internal static readonly ImmutableArray<float> DefaultCrossoverRates = new float[] { 0.3f, 0.5f, 0.2f }.Scan((a, b) => a + b, 0f).ToImmutableArray();
 
-    public Genome(IReadOnlyList<TPloidality> chromosomes, IEnumerable<CistronSpec_LNCE> specs, Random random)
+    public Genome(IReadOnlyList<TPloidality> chromosomes, IEnumerable<CistronSpec> specs, Random random)
     {
         this.Chromosomes = chromosomes;
-        this.CodonCollection = new ReadOnlyStartCodonCollection<CistronSpec_LNCE>(specs.ToList(), random);
+        this.CodonCollection = new ReadOnlyStartCodonCollection<CistronSpec>(specs.ToList(), random);
     }
     /// <summary>
     /// Creates the CodonCollection before the chromosomes need to be created; useful for random chromosome generation.
     /// </summary>
-    internal Genome(ReadOnlyStartCodonCollection<CistronSpec_LNCE> nature, out List<TPloidality> chromosomes)
+    internal Genome(ReadOnlyStartCodonCollection<CistronSpec> nature, out List<TPloidality> chromosomes)
     {
         this.CodonCollection = nature;
         this.Chromosomes = chromosomes = new List<TPloidality>();
     }
-    private Genome(ReadOnlyStartCodonCollection<CistronSpec_LNCE> nature, List<TPloidality> chromosomes)
+    private Genome(ReadOnlyStartCodonCollection<CistronSpec> nature, List<TPloidality> chromosomes)
     {
         this.CodonCollection = nature;
         this.Chromosomes = chromosomes;
     }
-    private Dictionary<CistronSpec_LNCE, int> SpecIndices => CodonCollection.SpecIndices;
-    public IReadOnlyCollection<CistronSpec_LNCE> Specs => SpecIndices.Keys;
+    private Dictionary<CistronSpec, int> SpecIndices => CodonCollection.SpecIndices;
+    public IReadOnlyCollection<CistronSpec> Specs => SpecIndices.Keys;
     public IReadOnlyList<TPloidality> Chromosomes { get; }
-    internal ReadOnlyStartCodonCollection<CistronSpec_LNCE> CodonCollection { get; }
+    internal ReadOnlyStartCodonCollection<CistronSpec> CodonCollection { get; }
     private object?[]? interpretations;
     private IReadOnlyList<TCodon> StartCodons => CodonCollection.StartCodons;  // for serialiation
     /// <summary>
@@ -157,7 +157,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
         this.ReverseObjects = this.Objects.ToDictionary(keySelector: _ => _.Value, elementSelector: _ => _.Key);
         this.SpecIndices = SpecToIndices(objects);
 
-        CistronsByAllele = this.Objects.Values.ToDictionary(keySelector: c => ((CistronSpec_LNCE)(object)c).Allele, elementSelector: c => c);
+        CistronsByAllele = this.Objects.Values.ToDictionary(keySelector: c => ((CistronSpec)(object)c).Allele, elementSelector: c => c);
         StartCodons = this.Objects.Keys.ToArray();
     }
     public int CodonBitLength { get; }
@@ -242,7 +242,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
 public interface IHomologousSet<T> where T : IHomologousSet<T>
 {
     int Count { get; }
-    IEnumerable<(CistronSpec_LNCE, Func<object>)> FindCistrons();
+    IEnumerable<(CistronSpec, Func<object>)> FindCistrons();
     T Reproduce(Func<Allele, object?> interpret, Random random);
     T Reproduce(T mate, Func<Allele, object?> interpret, Random random);
 
@@ -251,10 +251,10 @@ public interface IHomologousSet<T> where T : IHomologousSet<T>
 public sealed class Chromosome : IHomologousSet<Chromosome>
 {
     internal int Length => this.data.Length;
-    internal readonly ReadOnlyStartCodonCollection<CistronSpec_LNCE> codonCollection;
+    internal readonly ReadOnlyStartCodonCollection<CistronSpec> codonCollection;
     private readonly byte[] data;
     private bool frozen = false;
-    public Chromosome(byte[] data, ReadOnlyStartCodonCollection<CistronSpec_LNCE> codonCollection)
+    public Chromosome(byte[] data, ReadOnlyStartCodonCollection<CistronSpec> codonCollection)
     {
         this.data = data;
         this.codonCollection = codonCollection;
@@ -262,19 +262,19 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 
     int IHomologousSet<Chromosome>.Count => 1;
 
-    public IEnumerable<(CistronSpec_LNCE, Func<object>)> FindCistrons()
+    public IEnumerable<(CistronSpec, Func<object>)> FindCistrons()
     {
         this.frozen = true;
         foreach (var (cistronSpec, range) in codonCollection.Split(this.data))
         {
             if (Index.End.Equals(range.End))
             {
-                if (!cistronSpec.Spec.ImplicitStopCodonAllowed)
+                if (!cistronSpec.Interpreter.ImplicitStopCodonAllowed)
                     throw new GenomeInviableException("Implicit stop codon not allowed");
-                if (range.GetOffsetAndLength(this.data.Length).Length < cistronSpec.Spec.MinByteCount)
+                if (range.GetOffsetAndLength(this.data.Length).Length < cistronSpec.Interpreter.MinByteCount)
                     throw new GenomeInviableException("Implicit stop codon sequence too short");
             }
-            yield return (cistronSpec, () => cistronSpec.Spec.Interpreter.Create(this.data.AsSpan(range)));
+            yield return (cistronSpec, () => cistronSpec.Interpreter.Create(this.data.AsSpan(range)));
         }
     }
     public Chromosome Reproduce(Func<Allele, object?> interpret, Random random)
@@ -410,7 +410,7 @@ public sealed class DiploidChromosome : IHomologousSet<DiploidChromosome>
 {
     public Chromosome A { get; }
     public Chromosome B { get; }
-    private ReadOnlyStartCodonCollection<CistronSpec_LNCE> codonCollection => A.codonCollection;
+    private ReadOnlyStartCodonCollection<CistronSpec> codonCollection => A.codonCollection;
 
     int IHomologousSet<DiploidChromosome>.Count => 2;
     public DiploidChromosome(Chromosome a, Chromosome b)
@@ -443,7 +443,7 @@ public sealed class DiploidChromosome : IHomologousSet<DiploidChromosome>
     }
 
 
-    public IEnumerable<(CistronSpec_LNCE, Func<object>)> FindCistrons()
+    public IEnumerable<(CistronSpec, Func<object>)> FindCistrons()
     {
         throw new NotImplementedException();
     }
@@ -463,69 +463,51 @@ public enum Allele
     CrossoverRate = 3,
 
 }
-public class CistronSpec_LNCE // LNCE stands for Later not Cistron Epxression
+public class CistronSpec
 {
-    static CistronSpec_LNCE()
+    static CistronSpec()
     {
-        var defaults = new List<CistronSpec_LNCE>();
-        defaults.Add(new CistronSpec_LNCE()
+        var defaults = new List<CistronSpec>();
+        defaults.Add(new CistronSpec()
         {
             Meta = true,
-            Spec = NumberSpec.CreateUniformFloatFactory(0, 4),
+            Interpreter = NumberSpec.CreateUniformFloatFactory(0, 4),
         });
 
         Defaults = defaults;
     }
-    public static IReadOnlyCollection<CistronSpec_LNCE> Defaults { get; }
+    public static IReadOnlyCollection<CistronSpec> Defaults { get; }
 
 
     public Allele Allele { get; init; } = Allele.Custom;
     public bool Meta { get; init; } = false;
     public bool Required { get; init; } = true;
-    public ICistronSpec Spec { get; init; } = default!;
+    public ICistronInterpreter Interpreter { get; init; } = default!;
 
     public IMultiCistronMerger? Merger { get; }
 }
-public interface ICistronSpec
-{
-    ICistronInterpreter Interpreter => this.DeferToUpcast<ICistronInterpreter>();
-    int MinBitCount => Interpreter.MinBitCount;
-    int MaxBitCount => Interpreter.MaxBitCount;
-    int MinByteCount => Interpreter.MinByteCount;
-    int MaxByteCount => Interpreter.MaxByteCount;
-    bool ImplicitStopCodonAllowed => Interpreter.MaxBitCount > int.MaxValue / 2;
-}
-public interface IMultiCistronMerger  // decides which is recessive, dominant, or merges
-{
-    Func<object> Merge(Func<object> previous, Func<object> current);
-}
-public interface ICistronSpec<out T> : ICistronSpec
-{
-    new ICistronInterpreter<T> Interpreter { get; }
-}
 public interface ICistronInterpreter
-{
-    public int MinBitCount { get; }
-    public int MaxBitCount { get; }
-    public int MinByteCount => (MinBitCount + 7) / 8;
-    public int MaxByteCount { get { checked { return (MaxBitCount + 7) / 8; } } }
-    object Create(ReadOnlySpan<byte> cistron);
-    ReadOnlyCollection<byte>? InitialEncodedValue => this.DeferToUpcast<ReadOnlyCollection<byte>?>();
-    // byte[] ReverseEngineer(TCodon startCodon, object? value, TCodon stopCodon) => ((ICistronInterpreter<object>)this).ReverseEngineer(startCodon, value, stopCodon);
-}
-public interface ICistronInterpreter<out T> : ICistronInterpreter
 {
     /// <summary>
     /// The purpose of this function is to transform the data in a <typeparamref name="T"/> 
     /// where similar input corresponding to similar output, is a approximately continuous fashion.
     /// </summary>
     /// <returns> An <see cref="ICistron"/> or an <see cref="ICistron"/>-like.</returns>
-    new T Create(ReadOnlySpan<byte> cistron);
-    new ReadOnlyCollection<byte>? InitialEncodedValue => default;
+    object Create(ReadOnlySpan<byte> cistron) => throw new NotImplementedException("Should be upcast");
+    int MinBitCount { get; }
+    int MaxBitCount { get; }
+    int MinByteCount => (MinBitCount + 7) / 8;
+    int MaxByteCount { get { checked { return (MaxBitCount + 7) / 8; } } }
+    ReadOnlyCollection<byte>? InitialEncodedValue => default;
+    bool ImplicitStopCodonAllowed => MaxBitCount > int.MaxValue / 2;
     // byte[] ReverseEngineer(TCodon startCodon, T? value, TCodon stopCodon);
+
 }
-
-public interface ICistron
+public interface IMultiCistronMerger  // decides which is recessive, dominant, or merges
 {
-
+    Func<object> Merge(Func<object> previous, Func<object> current);
+}
+public interface ICistronInterpreter<out T> : ICistronInterpreter
+{
+    new T Create(ReadOnlySpan<byte> cistron);
 }

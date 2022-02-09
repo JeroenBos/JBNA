@@ -4,19 +4,13 @@ using T = System.Func<float, float>;
 
 namespace JBNA;
 
-internal class FunctionSpecFactory : ICistronSpec<T>
+internal static class FunctionSpecFactory 
 {
-    public static FunctionSpecFactory CreateFourierFunction(float minDomain = -1, float maxDomain = 1)
+    public static ICistronInterpreter<T> CreateFourierFunction(float minDomain = -1, float maxDomain = 1)
     {
-        return new FunctionSpecFactory(new FourierFunctionCistronInterpreter(minDomain, maxDomain));
-    }
-    protected FunctionSpecFactory(ICistronInterpreter<T> interpreter)
-    {
-        this.Interpreter = interpreter;
-
+        return new FourierFunctionCistronInterpreter(minDomain, maxDomain);
     }
 
-    public ICistronInterpreter<T> Interpreter { get; }
     internal class FourierFunctionCistronInterpreter : ICistronInterpreter<T>
     {
         public int MinBitCount { get; } = 8;
@@ -76,15 +70,15 @@ internal class FunctionSpecFactory : ICistronSpec<T>
     }
 
 }
-internal class Distribution : FunctionSpecFactory
-{
-    public Distribution(ICistronInterpreter<T> interpreter) : base( interpreter)
-    {
-    }
-}
-internal class MutationRate : FunctionSpecFactory
-{
-    public MutationRate(ICistronInterpreter<T> interpreter) : base( interpreter)
-    {
-    }
-}
+//internal class Distribution : FunctionSpecFactory
+//{
+//    public Distribution(ICistronInterpreter2<T> interpreter) : base( interpreter)
+//    {
+//    }
+//}
+//internal class MutationRate : FunctionSpecFactory
+//{
+//    public MutationRate(ICistronInterpreter2<T> interpreter) : base( interpreter)
+//    {
+//    }
+//}

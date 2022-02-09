@@ -4,12 +4,12 @@ namespace JBNA;
 
 public static class NumberSpec
 {
-    public static ICistronSpec<byte> ByteFactory { get; } = new ByteFactoryImpl();
-    public static ICistronSpec<float> CreateUniformFloatFactory(float min, float max)
+    public static ICistronInterpreter<byte> ByteFactory { get; } = new ByteInterpreter();
+    public static ICistronInterpreter<float> CreateUniformFloatFactory(float min, float max)
     {
-        return new UniformFloatFactoryImpl(min, max);
+        return new UniformFloatInterpreter(min, max);
     }
-    internal class ByteFactoryImpl : ICistronSpec<byte>
+    internal class ByteInterpreter : ICistronInterpreter<byte>
     {
         private static readonly byte[] proximityOrder = ComputeProximityOrder();
         private static byte[] ComputeProximityOrder()
@@ -55,108 +55,69 @@ public static class NumberSpec
             //return result;
         }
 
-        public byte Create(byte[] data)
+        public byte Create(ReadOnlySpan<byte> data)
         {
             Assert(data.Length == 1);
             return proximityOrder[data[0]];
         }
+        public int MinBitCount { get; } = 1;
+        public int MaxBitCount { get; } = 1;
 
-        public ICistronInterpreter<byte> Interpreter { get; } = new ByteCistronInterpreter();
-        internal class ByteCistronInterpreter : ICistronInterpreter<byte>
+        public byte[] ReverseEngineer(TCodon startCodon, byte value, TCodon stopCodon)
         {
-            public int MinBitCount { get; } = 1;
-            public int MaxBitCount { get; } = 1;
-            public static byte Create(ReadOnlySpan<byte> cistron)
-            {
-                Assert(cistron.Length == 1);
-                return cistron[0];
-            }
-
-            public byte[] ReverseEngineer(TCodon startCodon, byte value, TCodon stopCodon)
-            {
-                Assert(typeof(TCodon) == typeof(byte));
-                return new byte[] { startCodon, value, stopCodon };
-            }
-
-            object ICistronInterpreter.Create(ReadOnlySpan<byte> cistron) => ((ICistronInterpreter<byte>)this).Create(cistron);
-            byte ICistronInterpreter<byte>.Create(ReadOnlySpan<byte> cistron)
-            {
-                return ByteCistronInterpreter.Create(cistron);
-            }
-
+            Assert(typeof(TCodon) == typeof(byte));
+            return new byte[] { startCodon, value, stopCodon };
         }
 
+        object ICistronInterpreter.Create(ReadOnlySpan<byte> cistron) => ((ICistronInterpreter<byte>)this).Create(cistron);
     }
-    internal class UniformFloatFactoryImpl : ICistronSpec<float>
+    internal class UniformFloatInterpreter : ICistronInterpreter<float>
     {
+        private static readonly ICistronInterpreter<byte> byteInterpreter = NumberSpec.ByteFactory;
+
+        public int MinBitCount => byteInterpreter.MinBitCount;
+        public int MaxBitCount => byteInterpreter.MaxBitCount;
 
         public float Min { get; }
         public float Max { get; }
-
-
-        public UniformFloatFactoryImpl(float min, float max)
+        public UniformFloatInterpreter(float min, float max)
         {
-            Assert(!float.IsNaN(min) && !float.IsInfinity(min));
-            Assert(!float.IsNaN(max) && !float.IsInfinity(max));
-            Assert(min < max);
-
             this.Min = min;
             this.Max = max;
-            this.Interpreter = new FloatCistronInterpreter(this);
         }
-
-        public ICistronInterpreter<float> Interpreter { get; }
-
-        internal class FloatCistronInterpreter : ICistronInterpreter<float>
+        public float Create(ReadOnlySpan<byte> cistron)
         {
-            private static readonly ICistronInterpreter<byte> byteInterpreter = ByteFactory.Interpreter;
-            public int MinBitCount => byteInterpreter.MinBitCount;
-            public int MaxBitCount => byteInterpreter.MaxBitCount;
+            Assert(cistron.Length == 1);
+            byte b = byteInterpreter.Create(cistron);
 
-            private readonly UniformFloatFactoryImpl spec;
-            public FloatCistronInterpreter(UniformFloatFactoryImpl spec)
-            {
-                this.spec = spec;
-            }
-            public static float Create(ReadOnlySpan<byte> cistron, float min, float max)
-            {
-                Assert(cistron.Length == 1);
-                byte b = ByteFactoryImpl.ByteCistronInterpreter.Create(cistron);
-
-                float result = min + (max - min) * b / 255f;
-                return result;
-            }
-
-            public byte[] ReverseEngineer(byte startCodon, float value, byte stopCodon)
-            {
-                byte encoded = Enumerable.Range(0, 255)
-                                         .Select(i => (byte)i)
-                                         .MinBy(b => Math.Abs(Create(new byte[] { b }, this.spec.Min, this.spec.Max)));
-
-                return new byte[] { startCodon, encoded, stopCodon };
-            }
-
-            object ICistronInterpreter.Create(ReadOnlySpan<byte> cistron) => ((ICistronInterpreter<float>)this).Create(cistron);
-            float ICistronInterpreter<float>.Create(ReadOnlySpan<byte> cistron)
-            {
-                return FloatCistronInterpreter.Create(cistron, this.spec.Min, this.spec.Max);
-            }
+            float result = this.Min + (this.Max - this.Min) * b / 255f;
+            return result;
         }
 
+        public byte[] ReverseEngineer(byte startCodon, float value, byte stopCodon)
+        {
+            byte encoded = Enumerable.Range(0, 255)
+                                     .Select(i => (byte)i)
+                                     .MinBy(b => Math.Abs(value - Create(new byte[] { b })));
+
+            return new byte[] { startCodon, encoded, stopCodon };
+        }
+
+        object ICistronInterpreter.Create(ReadOnlySpan<byte> cistron) => ((ICistronInterpreter<float>)this).Create(cistron);
     }
 }
 
 // TODO:
-public class Correlation : ICistron
-{
+//public class Correlation : ICistron
+//{
 
-}
-public class Array : ICistron
-{
+//}
+//public class Array : ICistron
+//{
 
-}
-public class Selection : ICistron
-{
+//}
+//public class Selection : ICistron
+//{
 
-}
+//}
 
