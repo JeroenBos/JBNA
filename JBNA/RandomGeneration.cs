@@ -73,8 +73,8 @@ namespace JBNA
             int junkLength;
             if (nature.CistronsByAllele.TryGetValue(Allele.JunkRatio, out CistronSpec? junkJBNARatio))
             {
-                Assert(junkJBNARatio is ICistronInterpreter<float>);
-                var interpreter = ((ICistronInterpreter<float>)junkJBNARatio);
+                Assert(junkJBNARatio.Interpreter is ICistronInterpreter<float>);
+                var interpreter = ((ICistronInterpreter<float>)junkJBNARatio.Interpreter);
                 ReadOnlyCollection<byte>? encodedJunkRatio = interpreter.InitialEncodedValue;
                 if (encodedJunkRatio != null)
                 {

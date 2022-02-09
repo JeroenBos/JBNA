@@ -274,7 +274,26 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
                 if (range.GetOffsetAndLength(this.data.Length).Length < cistronSpec.Interpreter.MinByteCount)
                     throw new GenomeInviableException("Implicit stop codon sequence too short");
             }
-            yield return (cistronSpec, () => cistronSpec.Interpreter.Interpret(this.data.AsSpan(range)));
+            if (cistronSpec.Merger?.CouldIgnoreInvalidCistrons != true)
+            {
+                CheckLength(this.data, range, cistronSpec.Interpreter);
+            }
+
+
+            yield return (cistronSpec, () =>
+            {
+                CheckLength(this.data, range, cistronSpec.Interpreter);
+                return cistronSpec.Interpreter.Interpret(this.data.AsSpan(range));
+            });
+
+            static void CheckLength(byte[] data, Range range, ICistronInterpreter interpreter)
+            {
+                int cistronLength = range.GetOffsetAndLength(data.Length).Length;
+                if (cistronLength < interpreter.MinByteCount)
+                    throw new GenomeInviableException("Cistron too short");
+                if (cistronLength > interpreter.MaxByteCount)
+                    throw new GenomeInviableException("Cistron too long");
+            }
         }
     }
     public Chromosome Reproduce(Func<Allele, object?> interpret, Random random)
@@ -472,6 +491,15 @@ public class CistronSpec
         {
             Meta = true,
             Interpreter = NumberSpec.CreateUniformFloatFactory(0, 4),
+            Allele = Allele.JunkRatio,
+            Required = false, // defaults to 0
+        });
+        defaults.Add(new CistronSpec()
+        {
+            Meta = true,
+            Interpreter = NumberSpec.CreateUniformFloatFactory(0, 0.05f),
+            Allele = Allele.DefaultMutationRate,
+            Required = false, // defaults to 0
         });
 
         Defaults = defaults;
@@ -505,6 +533,7 @@ public interface ICistronInterpreter
 }
 public interface IMultiCistronMerger  // decides which is recessive, dominant, or merges
 {
+    bool CouldIgnoreInvalidCistrons => true;
     Func<object> Merge(Func<object> previous, Func<object> current);
 }
 public interface ICistronInterpreter<out T> : ICistronInterpreter
