@@ -40,7 +40,7 @@ namespace JBNA.Folders
         public void Test_Number_Converges_With_Defaults()
         {
             int populationSize = 100;
-            int maxTime = 11;
+            int maxTime = 1001;
             var random = new Random(1);
             var specs = new CistronSpec[] { new CistronSpec { Interpreter = NumberSpec.CreateUniformFloatFactory(0, 10) } };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: true);

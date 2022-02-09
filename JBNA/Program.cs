@@ -100,9 +100,14 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
         var interpretations = this.Interpret();
         var result = SpecIndices.Keys.Select((value, i) => new { value, i })
                                      .Where(p => p.value.Allele == allele)
-                                     .Select(p => this.interpretations[p.i])
+                                     .Select(p => this.interpretations![p.i])
+                                     .Where(p => p != null)
                                      .ToList();
-        return result;
+        if (result.Count > 1)
+            throw new NotImplementedException("Hmmm, should the cistrons be indexed by startcodons, or alleles? ");
+        // depending on the usage, I'd say. Can an Allele have multiple startCodons? In real life yes, here I'm inclined to say no.
+        // if the answer _is_ no, then the length of the result must be 0 or 1 (either codon present or not) because merging has already happened
+        return result.Count == 0 ? null : result[0];
     }
     internal object? Interpret(IReadOnlyList<Allele> alleles)
     {
@@ -313,20 +318,17 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         int crossoverCount = GetCrossoverCount(interpret, random); // number in [0, ~3]
         var splitIndices = random.ManySorted(crossoverCount, 0, length);
 
-        byte[] newChromosome = new byte[length];
+        byte[] newChromosomeData = new byte[length];
         int side = random.Next(2); // random start side
         foreach (var range in splitIndices.Append(length).Windowed2(0))
         {
             var source = side == 0 ? this : mate;
-            source.CopyTo(newChromosome, range.First, range.Second - range.First);
+            source.CopyTo(newChromosomeData, range.First, range.Second - range.First);
             side = 1 - side; // alternate 
         }
-        return new Chromosome(newChromosome, this.codonCollection);
-
-
-        throw new InvalidOperationException("Reproducing haploidal chromosomes diploidally, which doesn't make sense");
-        // alternative implementation:
-        // return Reproduce(interpret, random);
+        var newChromosome = new Chromosome(newChromosomeData, this.codonCollection);
+        newChromosome.Mutate(interpret, random);
+        return newChromosome;
     }
 
     private static int GetCrossoverCount(Func<Allele, object?> interpret, Random random)
@@ -359,14 +361,11 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         float mutationRate = GetMutationRate(interpret);
         float mutationRateStdDev = GetMutationRateStdDev(interpret);
 
-        float mutationCountMu = mutationRate * this.Length;
-        float mutationCountSi = mutationRateStdDev * this.Length;
-        int mutationCount = (int)random.Normal(mutationCountMu, mutationCountSi);
+        int[] mutationBitIndices = randomlySelectBitIndices(mutationRate, mutationRateStdDev, random);
+        this.Mutate(mutationBitIndices);
 
-        int[] mutationIndices = random.ManySorted(mutationCount, 0, 8 * this.Length);
-        this.Mutate(mutationIndices);
+        this.ResizeMutate(interpret, random);
     }
-
     private void Mutate(int[] mutationBitIndices)
     {
         Assert(!this.frozen, "Can't mutate frozen chromosome");
@@ -395,6 +394,45 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         }
     }
 
+    private int[] randomlySelectBitIndices(float rate, float rateStdDev, Random random)
+    {
+        float mutationCountMu = rate * this.Length;
+        float mutationCountSi = rateStdDev * this.Length;
+        int mutationCount = (int)random.Normal(mutationCountMu, mutationCountSi);
+
+        int[] mutationIndices = random.ManySorted(mutationCount, 0, 8 * this.Length);
+        return mutationIndices;
+    }
+    private void ResizeMutate(Func<Allele, object?> interpret, Random random)
+    {
+        Assert(!this.frozen, "Can't resize frozen chromosome");
+
+        float insertionRate = GetBitInsertionRate(interpret);
+        // for simplicity let's not have a separate std dev here (yet)
+        int[] insertionBitIndices = randomlySelectBitIndices(insertionRate, insertionRate, random);
+        List<bool> insertionBits = insertionBitIndices.Select(_ => random.Next(2) == 0).ToList();
+
+        this.InsertBits(insertionBitIndices, insertionBits);
+
+
+
+        float removalRate = GetBitInsertionRate(interpret);
+        // for simplicity let's not have a separate std dev here (yet)
+        int[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, random);
+
+        this.RemoveBits(insertionBitIndices);
+    }
+    private void RemoveBits(int[] bitIndices)
+    {
+        if (bitIndices.Length != 0)
+            throw new NotImplementedException();
+    }
+    private void InsertBits(int[] bitIndices, IList<bool> bits)
+    {
+        Assert(bitIndices.Length == bits.Count);
+        if (bitIndices.Length != 0)
+            throw new NotImplementedException();
+    }
     private static float GetMutationRate(Func<Allele, object?> interpret)
     {
         object? value = interpret(Allele.DefaultMutationRate);
@@ -407,6 +445,20 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         object? value = interpret(Allele.DefaultMutationRateStdDev);
         if (value == null)
             return CistronSpec.DefaultMutationRateStdDev;
+        return (float)value;
+    }
+    private static float GetBitInsertionRate(Func<Allele, object?> interpret)
+    {
+        object? value = interpret(Allele.BitInsertionRate);
+        if (value == null)
+            return CistronSpec.DefaultBitInsertionRate;
+        return (float)value;
+    }
+    private static float GetBitRemovalRate(Func<Allele, object?> interpret)
+    {
+        object? value = interpret(Allele.BitRemovalRate);
+        if (value == null)
+            return CistronSpec.DefaultBitRemovalRate;
         return (float)value;
     }
     private Chromosome Clone()
@@ -478,7 +530,8 @@ public enum Allele
     DefaultMutationRate,
     DefaultMutationRateStdDev,
     CrossoverRate,
-
+    BitRemovalRate,
+    BitInsertionRate,
 }
 public class CistronSpec
 {
@@ -499,12 +552,35 @@ public class CistronSpec
             Allele = Allele.DefaultMutationRate,
             Required = false,  /// defaults to <see cref="DefaultMutationRate"/>
         });
+        defaults.Add(new CistronSpec()
+        {
+            Meta = true,
+            Interpreter = NumberSpec.CreateUniformFloatFactory(0, 0.05f),
+            Allele = Allele.DefaultMutationRateStdDev,
+            Required = false,  /// defaults to <see cref="DefaultMutationRateStdDev"/>
+        });
+        defaults.Add(new CistronSpec()
+        {
+            Meta = true,
+            Interpreter = NumberSpec.CreateUniformFloatFactory(0, 0.05f),
+            Allele = Allele.BitInsertionRate,
+            Required = false,  /// defaults to <see cref="DefaultBitInsertionRate"/>
+        });
+        defaults.Add(new CistronSpec()
+        {
+            Meta = true,
+            Interpreter = NumberSpec.CreateUniformFloatFactory(0, 0.05f),
+            Allele = Allele.BitRemovalRate,
+            Required = false,  /// defaults to <see cref="DefaultBitRemovalRate"/>
+        });
 
         Defaults = defaults;
     }
     // these are the defaults in case the alleles are missing
     internal const float DefaultMutationRate = 0.01f;
     internal const float DefaultMutationRateStdDev = DefaultMutationRate / 4;
+    internal const float DefaultBitInsertionRate = 0.001f;
+    internal const float DefaultBitRemovalRate = 0.001f;
     internal static readonly ImmutableArray<float> DefaultCrossoverRates = new float[] { 0.3f, 0.5f, 0.2f }.Scan((a, b) => a + b, 0f).ToImmutableArray();
     public static IReadOnlyCollection<CistronSpec> Defaults { get; }
 
