@@ -4,17 +4,13 @@ namespace JBNA;
 
 public static class NumberSpec
 {
-    public static ICistronSpec<byte> CreateByteFactory(bool required) => new ByteFactoryImpl(required);
-    public static ICistronSpec<float> CreateUniformFloatFactory(bool required, float min, float max)
+    public static ICistronSpec<byte> ByteFactory { get; } = new ByteFactoryImpl();
+    public static ICistronSpec<float> CreateUniformFloatFactory(float min, float max)
     {
-        return new UniformFloatFactoryImpl(required, min, max);
+        return new UniformFloatFactoryImpl(min, max);
     }
-    class ByteFactoryImpl : ICistronSpec<byte>
+    internal class ByteFactoryImpl : ICistronSpec<byte>
     {
-        public ByteFactoryImpl(bool required)
-        {
-            this.Required = required;
-        }
         private static readonly byte[] proximityOrder = ComputeProximityOrder();
         private static byte[] ComputeProximityOrder()
         {
@@ -58,9 +54,7 @@ public static class NumberSpec
             //}
             //return result;
         }
-        public int MinBitCount { get; } = 1;
-        public int MaxBitCount { get; } = 1;
-        public bool Required { get; }
+
         public byte Create(byte[] data)
         {
             Assert(data.Length == 1);
@@ -70,6 +64,8 @@ public static class NumberSpec
         public ICistronInterpreter<byte> Interpreter { get; } = new ByteCistronInterpreter();
         internal class ByteCistronInterpreter : ICistronInterpreter<byte>
         {
+            public int MinBitCount { get; } = 1;
+            public int MaxBitCount { get; } = 1;
             public static byte Create(ReadOnlySpan<byte> cistron)
             {
                 Assert(cistron.Length == 1);
@@ -91,17 +87,14 @@ public static class NumberSpec
         }
 
     }
-    class UniformFloatFactoryImpl : ICistronSpec<float>
+    internal class UniformFloatFactoryImpl : ICistronSpec<float>
     {
-        private readonly ByteFactoryImpl byteFactory = new(false);
-        public int MinBitCount => byteFactory.MinBitCount;
-        public int MaxBitCount => byteFactory.MaxBitCount;
+
         public float Min { get; }
         public float Max { get; }
-        public bool Required { get; }
 
 
-        public UniformFloatFactoryImpl(bool required, float min, float max)
+        public UniformFloatFactoryImpl(float min, float max)
         {
             Assert(!float.IsNaN(min) && !float.IsInfinity(min));
             Assert(!float.IsNaN(max) && !float.IsInfinity(max));
@@ -110,13 +103,16 @@ public static class NumberSpec
             this.Min = min;
             this.Max = max;
             this.Interpreter = new FloatCistronInterpreter(this);
-            this.Required = required;
         }
 
         public ICistronInterpreter<float> Interpreter { get; }
 
         internal class FloatCistronInterpreter : ICistronInterpreter<float>
         {
+            private static readonly ICistronInterpreter<byte> byteInterpreter = ByteFactory.Interpreter;
+            public int MinBitCount => byteInterpreter.MinBitCount;
+            public int MaxBitCount => byteInterpreter.MaxBitCount;
+
             private readonly UniformFloatFactoryImpl spec;
             public FloatCistronInterpreter(UniformFloatFactoryImpl spec)
             {

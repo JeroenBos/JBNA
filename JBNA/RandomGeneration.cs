@@ -10,15 +10,19 @@ namespace JBNA
 {
     internal class RandomGeneration
     {
-        public static ReadOnlyStartCodonCollection<ICistronSpec> CreateRandomHaploidNature(IReadOnlyList<ICistronSpec> specs, Random random)
+        public const int MaxByteCountForAnything = 10000;
+        public static ReadOnlyStartCodonCollection<CistronSpec_LNCE> CreateRandomHaploidNature(IReadOnlyList<CistronSpec_LNCE> specs, Random random, bool add_defaults = true)
         {
             // Add defaults
             var cistronSpecByAlleles = specs.ToDictionary(cistron => cistron.Allele);
-            var defaultCistronSpecs = ICistronSpec.Defaults.Where(cistron => !cistronSpecByAlleles.ContainsKey(cistron.Allele));
-            specs = specs.Concat(defaultCistronSpecs).ToArray();
+            if (add_defaults)
+            {
+                var defaultCistronSpecs = CistronSpec_LNCE.Defaults.Where(cistron => !cistronSpecByAlleles.ContainsKey(cistron.Allele));
+                specs = specs.Concat(defaultCistronSpecs).ToArray();
+            }
 
-            int minByteCount = specs.Aggregate(0, (s, order) => s + order.MinByteCount);
-            int maxByteCount = specs.Aggregate(0, (s, order) => s + order.MaxByteCount);
+            int minByteCount = specs.Aggregate(0, (s, order) => s + order.Spec.MinByteCount);
+            int maxByteCount = specs.Aggregate(0, (s, order) => s + order.Spec.MaxByteCount);
 
             int chromosomeCount = 1 + specs.Count / 20;
 
@@ -28,10 +32,10 @@ namespace JBNA
             // order in which the cistrons will be placed in the chromosomes
             var order = random.GenerateUniqueRandomNumbers(specs.Count, specs.Count);
 
-            var nature = new ReadOnlyStartCodonCollection<ICistronSpec>(specs, random);
+            var nature = new ReadOnlyStartCodonCollection<CistronSpec_LNCE>(specs, random);
             return nature;
         }
-        public static HaploidalGenome CreateRandomHaploid(ReadOnlyStartCodonCollection<ICistronSpec> nature, Random random)
+        public static HaploidalGenome CreateRandomHaploid(ReadOnlyStartCodonCollection<CistronSpec_LNCE> nature, Random random)
         {
             var genome = new HaploidalGenome(nature, out List<Chromosome> chromosomes);
 
@@ -42,7 +46,7 @@ namespace JBNA
                 if (!genome.CodonCollection.ReverseObjects.TryGetValue(spec, out TCodon startCodon))
                     throw new Exception($"No start codon assigned to '{spec.Allele}'");
 
-                ReadOnlyCollection<byte>? initialEncoding = spec.Interpreter.InitialEncodedValue;
+                ReadOnlyCollection<byte>? initialEncoding = spec.Spec.Interpreter.InitialEncodedValue;
                 byte[] encoding;
                 if (initialEncoding != null)
                 {
@@ -51,7 +55,8 @@ namespace JBNA
                 }
                 else
                 {
-                    int cistronLength = spec.MinByteCount + random.Next(spec.MaxByteCount - spec.MinByteCount);
+                    int lengthRange = Math.Min(spec.Spec.MaxByteCount - spec.Spec.MinByteCount, MaxByteCountForAnything);
+                    int cistronLength = spec.Spec.MinByteCount + random.Next(lengthRange);
                     encoding = new byte[1 + cistronLength + 1];
                     for (int i = 1; i < encoding.Length - 1; i++)
                     {
@@ -66,7 +71,7 @@ namespace JBNA
             int nonJunkLength = sequencesToInsert.Aggregate(0, (s, array) => s + array.Length);
             int totalLength;
             int junkLength;
-            if (nature.CistronsByAllele.TryGetValue(Allele.JunkRatio, out ICistronSpec? junkJBNARatio))
+            if (nature.CistronsByAllele.TryGetValue(Allele.JunkRatio, out CistronSpec_LNCE? junkJBNARatio))
             {
                 Assert(junkJBNARatio is ICistronSpec<float>);
                 var interpreter = ((ICistronSpec<float>)junkJBNARatio).Interpreter;

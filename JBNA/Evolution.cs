@@ -10,9 +10,9 @@ namespace JBNA
     {
         private static readonly Random rng = new Random();
 
-        private ReadOnlyStartCodonCollection<ICistronSpec> nature;
+        private ReadOnlyStartCodonCollection<CistronSpec_LNCE> nature;
         // private readonly IReadOnlyList<ICistronSpec> specs => nature.;
-        private readonly Func<ReadOnlyStartCodonCollection<ICistronSpec>, Random, Genome<P>> drawGenome;
+        private readonly Func<ReadOnlyStartCodonCollection<CistronSpec_LNCE>, Random, Genome<P>> drawGenome;
         private readonly Func<object?[], float> scoreFunction;
         private readonly Random random;
         private readonly int maxAttemptsUntilDrawGenomeIsInviable;
@@ -20,8 +20,8 @@ namespace JBNA
         private Genome<P>[] population;
         /// <param name="scoreFunction">There may be extra objects appended at the end of the first argument (default cistron values). </param>
         public Evolution(
-            ReadOnlyStartCodonCollection<ICistronSpec> nature,
-            Func<ReadOnlyStartCodonCollection<ICistronSpec>, Random, Genome<P>> drawGenome,
+            ReadOnlyStartCodonCollection<CistronSpec_LNCE> nature,
+            Func<ReadOnlyStartCodonCollection<CistronSpec_LNCE>, Random, Genome<P>> drawGenome,
             Func<object?[], float> scoreFunction,
             int populationSize,
             int maxAttemptsUntilDrawGenomeIsInviable = 100,
