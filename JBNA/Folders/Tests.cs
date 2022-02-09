@@ -6,8 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-Assert(DiploidalGenome.DefaultCrossoverRates[0] == 0.3f);
+
 new Tests().Test_Number_Converges_With_Defaults();
+
 
 namespace JBNA.Folders
 {

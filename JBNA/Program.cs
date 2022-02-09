@@ -12,10 +12,6 @@ namespace JBNA;
 
 public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
 {
-    internal const float DefaultMutationRate = 0.01f;
-    internal const float DefaultMutationRateStdDev = DefaultMutationRate / 4;
-    internal static readonly ImmutableArray<float> DefaultCrossoverRates = new float[] { 0.3f, 0.5f, 0.2f }.Scan((a, b) => a + b, 0f).ToImmutableArray();
-
     public Genome(IReadOnlyList<TPloidality> chromosomes, IEnumerable<CistronSpec> specs, Random random)
     {
         this.Chromosomes = chromosomes;
@@ -284,7 +280,8 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
             {
                 CheckLength(this.data, range, cistronSpec.Interpreter);
                 return cistronSpec.Interpreter.Interpret(this.data.AsSpan(range));
-            });
+            }
+            );
 
             static void CheckLength(byte[] data, Range range, ICistronInterpreter interpreter)
             {
@@ -338,7 +335,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         object? value = interpret(Allele.CrossoverRate);
         IEnumerable<float> cumulativeCrossoverCountProbability;
         if (value == null)
-            cumulativeCrossoverCountProbability = Genome<DiploidChromosome>.DefaultCrossoverRates;
+            cumulativeCrossoverCountProbability = CistronSpec.DefaultCrossoverRates;
         else
             cumulativeCrossoverCountProbability = ((System.Collections.IEnumerable)value).Cast<float>();
 
@@ -402,14 +399,14 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     {
         object? value = interpret(Allele.DefaultMutationRate);
         if (value == null)
-            return Genome<DiploidChromosome>.DefaultMutationRate;
+            return CistronSpec.DefaultMutationRate;
         return (float)value;
     }
     private static float GetMutationRateStdDev(Func<Allele, object?> interpret)
     {
-        object? value = interpret(Allele.DefaultMutationRate);
+        object? value = interpret(Allele.DefaultMutationRateStdDev);
         if (value == null)
-            return Genome<DiploidChromosome>.DefaultMutationRate;
+            return CistronSpec.DefaultMutationRateStdDev;
         return (float)value;
     }
     private Chromosome Clone()
@@ -477,9 +474,10 @@ public sealed class DiploidChromosome : IHomologousSet<DiploidChromosome>
 public enum Allele
 {
     Custom = 0,
-    JunkRatio = 1,
-    DefaultMutationRate = 2,
-    CrossoverRate = 3,
+    JunkRatio,
+    DefaultMutationRate,
+    DefaultMutationRateStdDev,
+    CrossoverRate,
 
 }
 public class CistronSpec
@@ -492,26 +490,30 @@ public class CistronSpec
             Meta = true,
             Interpreter = NumberSpec.CreateUniformFloatFactory(0, 4),
             Allele = Allele.JunkRatio,
-            Required = false, // defaults to 0
+            Required = false, // default to 0
         });
         defaults.Add(new CistronSpec()
         {
             Meta = true,
             Interpreter = NumberSpec.CreateUniformFloatFactory(0, 0.05f),
             Allele = Allele.DefaultMutationRate,
-            Required = false, // defaults to 0
+            Required = false,  /// defaults to <see cref="DefaultMutationRate"/>
         });
 
         Defaults = defaults;
     }
+    // these are the defaults in case the alleles are missing
+    internal const float DefaultMutationRate = 0.01f;
+    internal const float DefaultMutationRateStdDev = DefaultMutationRate / 4;
+    internal static readonly ImmutableArray<float> DefaultCrossoverRates = new float[] { 0.3f, 0.5f, 0.2f }.Scan((a, b) => a + b, 0f).ToImmutableArray();
     public static IReadOnlyCollection<CistronSpec> Defaults { get; }
+
 
 
     public Allele Allele { get; init; } = Allele.Custom;
     public bool Meta { get; init; } = false;
     public bool Required { get; init; } = true;
     public ICistronInterpreter Interpreter { get; init; } = default!;
-
     public IMultiCistronMerger? Merger { get; }
 }
 public interface ICistronInterpreter
