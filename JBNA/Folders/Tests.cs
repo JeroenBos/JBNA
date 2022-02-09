@@ -7,16 +7,16 @@ using System.Text;
 using System.Threading.Tasks;
 
 Assert(DiploidalGenome.DefaultCrossoverRates[0] == 0.3f);
-new Tests().Test();
+new Tests().Test_Number_Converges();
 
 namespace JBNA.Folders
 {
     internal class Tests
     {
-        public void Test()
+        public void Test_Number_Converges()
         {
             int populationSize = 100;
-            int maxTime = 10;
+            int maxTime = 20;
             var random = new Random(1);
             var specs = new[] { NumberSpec.CreateUniformFloatFactory(required: true, 0, 10) };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random);

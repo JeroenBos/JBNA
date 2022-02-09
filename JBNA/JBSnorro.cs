@@ -146,4 +146,19 @@ public static class Extensions
         var result = mi!.Invoke(obj, new object?[] { arg0, arg1 });
         return (TResult)result!;
     }
+    public static float StandardDeviation(this IEnumerable<float> numbers, float? average = null)
+    {
+        float μ = average ?? numbers.Average();
+
+        int count = 0;
+        float sum = 0;
+        foreach (var number in numbers)
+        {
+            sum += (number - μ) * (number - μ);
+            count++;
+        }
+        if (count == 0)
+            return 0;
+        return (float)Math.Sqrt(sum / count);
+    }
 }

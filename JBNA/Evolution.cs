@@ -35,7 +35,7 @@ namespace JBNA
             this.maxAttemptsUntilDrawGenomeIsInviable = maxAttemptsUntilDrawGenomeIsInviable;
         }
 
-        public float[]  Evolve(int maxTime, CancellationToken cancellationToken = default)
+        public float[] Evolve(int maxTime, CancellationToken cancellationToken = default)
         {
             int t = 0;
             float[] finalScores = null!;
@@ -102,7 +102,7 @@ namespace JBNA
             // undo minus sign
             for (int i = 0; i < scores.Length; i++)
                 scores[i] *= -1;
-            Console.WriteLine($"Average = {scores.Average()}");
+            Console.WriteLine($"μ={scores.Average()}. σ={scores.StandardDeviation()}");
             return scores;
         }
         private void Reproduce()
