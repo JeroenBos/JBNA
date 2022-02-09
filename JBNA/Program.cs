@@ -274,7 +274,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
                 if (range.GetOffsetAndLength(this.data.Length).Length < cistronSpec.Interpreter.MinByteCount)
                     throw new GenomeInviableException("Implicit stop codon sequence too short");
             }
-            yield return (cistronSpec, () => cistronSpec.Interpreter.Create(this.data.AsSpan(range)));
+            yield return (cistronSpec, () => cistronSpec.Interpreter.Interpret(this.data.AsSpan(range)));
         }
     }
     public Chromosome Reproduce(Func<Allele, object?> interpret, Random random)
@@ -493,7 +493,7 @@ public interface ICistronInterpreter
     /// where similar input corresponding to similar output, is a approximately continuous fashion.
     /// </summary>
     /// <returns> An <see cref="ICistron"/> or an <see cref="ICistron"/>-like.</returns>
-    object Create(ReadOnlySpan<byte> cistron) => throw new NotImplementedException("Should be upcast");
+    object Interpret(ReadOnlySpan<byte> cistron) => ((ICistronInterpreter<object>)this).Interpret(cistron); // only works for reference types
     int MinBitCount { get; }
     int MaxBitCount { get; }
     int MinByteCount => (MinBitCount + 7) / 8;
@@ -509,5 +509,5 @@ public interface IMultiCistronMerger  // decides which is recessive, dominant, o
 }
 public interface ICistronInterpreter<out T> : ICistronInterpreter
 {
-    new T Create(ReadOnlySpan<byte> cistron);
+    new T Interpret(ReadOnlySpan<byte> cistron);
 }

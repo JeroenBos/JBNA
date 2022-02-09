@@ -55,7 +55,7 @@ public static class NumberSpec
             //return result;
         }
 
-        public byte Create(ReadOnlySpan<byte> data)
+        public byte Interpret(ReadOnlySpan<byte> data)
         {
             Assert(data.Length == 1);
             return proximityOrder[data[0]];
@@ -69,7 +69,7 @@ public static class NumberSpec
             return new byte[] { startCodon, value, stopCodon };
         }
 
-        object ICistronInterpreter.Create(ReadOnlySpan<byte> cistron) => ((ICistronInterpreter<byte>)this).Create(cistron);
+        object ICistronInterpreter.Interpret(ReadOnlySpan<byte> cistron) => Interpret(cistron);
     }
     internal class UniformFloatInterpreter : ICistronInterpreter<float>
     {
@@ -85,10 +85,10 @@ public static class NumberSpec
             this.Min = min;
             this.Max = max;
         }
-        public float Create(ReadOnlySpan<byte> cistron)
+        public float Interpret(ReadOnlySpan<byte> cistron)
         {
             Assert(cistron.Length == 1);
-            byte b = byteInterpreter.Create(cistron);
+            byte b = byteInterpreter.Interpret(cistron);
 
             float result = this.Min + (this.Max - this.Min) * b / 255f;
             return result;
@@ -98,12 +98,12 @@ public static class NumberSpec
         {
             byte encoded = Enumerable.Range(0, 255)
                                      .Select(i => (byte)i)
-                                     .MinBy(b => Math.Abs(value - Create(new byte[] { b })));
+                                     .MinBy(b => Math.Abs(value - Interpret(new byte[] { b })));
 
             return new byte[] { startCodon, encoded, stopCodon };
         }
 
-        object ICistronInterpreter.Create(ReadOnlySpan<byte> cistron) => ((ICistronInterpreter<float>)this).Create(cistron);
+        object ICistronInterpreter.Interpret(ReadOnlySpan<byte> cistron) => Interpret(cistron);
     }
 }
 

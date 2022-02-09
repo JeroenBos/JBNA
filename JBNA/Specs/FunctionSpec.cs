@@ -26,7 +26,7 @@ internal static class FunctionSpecFactory
             this.domainMax = domainMax;
         }
 
-        public T Create(ReadOnlySpan<byte> cistron)
+        public T Interpret(ReadOnlySpan<byte> cistron)
         {
             Assert(cistron.Length > 0);
 
@@ -64,9 +64,7 @@ internal static class FunctionSpecFactory
 
 
 
-        T ICistronInterpreter<T>.Create(ReadOnlySpan<byte> cistron) => Create(cistron);
-        object ICistronInterpreter.Create(ReadOnlySpan<byte> cistron) => Create(cistron);
-
+        object ICistronInterpreter.Interpret(ReadOnlySpan<byte> cistron) => Interpret(cistron);
     }
 
 }

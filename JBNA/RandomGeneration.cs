@@ -78,7 +78,7 @@ namespace JBNA
                 ReadOnlyCollection<byte>? encodedJunkRatio = interpreter.InitialEncodedValue;
                 if (encodedJunkRatio != null)
                 {
-                    float junkRatio = interpreter.Create(encodedJunkRatio.ToArray().AsSpan());
+                    float junkRatio = interpreter.Interpret(encodedJunkRatio.ToArray().AsSpan());
                     totalLength = Math.Max(nonJunkLength, (int)(nonJunkLength / (1 - junkRatio)));
                     junkLength = totalLength - nonJunkLength;
                 }
