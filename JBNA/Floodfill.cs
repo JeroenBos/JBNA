@@ -101,11 +101,11 @@ public static class Floodfill
                         curArea = Area;
                         fill = true;
                     }
-                    if (x != width - 1 && area[y, x] == 0)
-                    {
-                        var bounds = SetBorder(new Point(x, y), curArea, area);
-                        areaBoundingsRects.Add(bounds);
-                    }
+                    // if (x != width - 1 && area[y, x] == 0)
+                    // {
+                    // var bounds = SetBorder(new Point(x, y), curArea, area);
+                    // areaBoundingsRects.Add(bounds);
+                    // }
                 }
             }
             fill = false;
@@ -134,6 +134,73 @@ public static class Floodfill
                 }
             }
         } while (curPosi != startPosition);
+        return boundingRect;
+    }
+    internal static List<Rectangle> DivideMapInAreas(Func<Point, bool> isArea, int width, int height)
+    {
+        List<Rectangle> areaBoundingsRects = new();
+        HashSet<Point> alreadyBeen = new();
+        int curArea = 1;
+
+        bool fill = false;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                var p = new Point(x, y);
+                if (!isArea(p))
+                {
+                    fill = false;
+                }
+                else
+                {
+                    if (!alreadyBeen.Contains(p))
+                    {
+                        if (fill)
+                        {
+                        }
+                        else
+                        {
+                            curArea++;
+
+                            var bounds = SetBorder(new Point(x, y), isArea, alreadyBeen, width, height);
+                            areaBoundingsRects.Add(bounds);
+                            fill = true;
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        fill = true;
+                    }
+                }
+            }
+            fill = false;
+        }
+        return areaBoundingsRects;
+    }
+    private static Rectangle SetBorder(Point startPosition, Func<Point, bool> isArea, HashSet<Point> alreadyBeen, int width, int height)
+    {
+        var boundingRect = new Rectangle(startPosition, 1, 1);
+        Point p = startPosition;
+        int D = 2;
+        do
+        {
+            alreadyBeen.Add(p);
+            boundingRect = boundingRect.Add(p);
+            for (int d = 0; d < 8; d++)
+            {
+                Point next = p + getOffset(D + d);
+                if (!next.WithinBounds(width, height))
+                    continue;
+                if (isArea(next))
+                {
+                    p = next;
+                    D = (D + d + 6) & 7;
+                    break;
+                }
+            }
+        } while (p != startPosition);
         return boundingRect;
     }
     private static Point getOffset(int i)
