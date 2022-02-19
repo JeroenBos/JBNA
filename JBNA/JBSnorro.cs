@@ -1,4 +1,5 @@
-﻿global using static JBSnorro.Extensions;
+﻿# pragma warning disable CS0437
+global using static JBSnorro.Extensions;
 using System;
 using System.Collections;
 using System.Diagnostics;
@@ -160,5 +161,17 @@ public static class Extensions
         if (count == 0)
             return 0;
         return (float)Math.Sqrt(sum / count);
+    }
+    public static ArraySegment<T> AsArraySegment<T>(this IReadOnlyList<T> list)
+    {
+        if (list is ArraySegment<T> arraySegment)
+            return arraySegment;
+
+        throw new NotImplementedException("AsArraySegment");
+    }
+    public static ArraySegment<T> SelectSegment<T>(this T[] array, Range range)
+    {
+        var (offset, length) = range.GetOffsetAndLength(array.Length);
+        return new ArraySegment<T>(array, offset, length);
     }
 }

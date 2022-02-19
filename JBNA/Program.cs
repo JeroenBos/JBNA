@@ -196,18 +196,13 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
             }
         }
         index = -1;
-        value  = default;
+        value = default;
         return false;
     }
     public Index FindStopCodon(byte[] data, int startIndex)
     {
         Assert(StopCodonByteLength == 1); // implementation depends on it
-        for (int i = startIndex; i < data.Length; i++)
-        {
-            if (data[i] == StopCodon)
-                return i;
-        }
-        return Index.End;
+        return data.FindCodon(this.StopCodon, startIndex);
     }
     public IEnumerable<KeyValuePair<T, Range>> TryFind(byte[] data, TCodon codon)
     {
@@ -284,7 +279,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
             yield return (cistronSpec, () =>
             {
                 CheckLength(this.data, range, cistronSpec.Interpreter);
-                return cistronSpec.Interpreter.Interpret(this.data.AsSpan(range));
+                return cistronSpec.Interpreter.Interpret(this.data.SelectSegment(range));
             }
             );
 
@@ -311,16 +306,15 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     /// </summary>
     internal Chromosome Reproduce(Chromosome mate, Func<Allele, object?> interpret, Random random)
     {
-        Assert(this.Length == mate.Length);
-        int length = this.Length;
-
         // crossover (is between the pair of the diploid)
         int crossoverCount = GetCrossoverCount(interpret, random); // number in [0, ~3]
-        var splitIndices = random.ManySorted(crossoverCount, 0, length);
+        var splitIndices = random.ManySorted(crossoverCount, 0, Math.Min(mate.Length, this.Length));
 
-        byte[] newChromosomeData = new byte[length];
-        int side = random.Next(2); // random start side
-        foreach (var range in splitIndices.Append(length).Windowed2(0))
+        int startSide = random.Next(2); // random start side
+        bool endsOnThisSide = (startSide == 0) == ((crossoverCount % 2) == 0);
+        byte[] newChromosomeData = new byte[endsOnThisSide ? this.Length : mate.Length];
+        int side = startSide;
+        foreach (var range in splitIndices.Append(newChromosomeData.Length).Windowed2(0))
         {
             var source = side == 0 ? this : mate;
             source.CopyTo(newChromosomeData, range.First, range.Second - range.First);
@@ -415,7 +409,6 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         this.InsertBits(insertionBitIndices, insertionBits);
 
 
-
         float removalRate = GetBitInsertionRate(interpret);
         // for simplicity let's not have a separate std dev here (yet)
         int[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, random);
@@ -430,8 +423,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     private void InsertBits(int[] bitIndices, IList<bool> bits)
     {
         Assert(bitIndices.Length == bits.Count);
-        if (bitIndices.Length != 0)
-            throw new NotImplementedException();
+        throw new NotImplementedException();
     }
     private static float GetMutationRate(Func<Allele, object?> interpret)
     {
@@ -599,11 +591,11 @@ public interface ICistronInterpreter
     /// where similar input corresponding to similar output, is a approximately continuous fashion.
     /// </summary>
     /// <returns> An <see cref="ICistron"/> or an <see cref="ICistron"/>-like.</returns>
-    object Interpret(ReadOnlySpan<byte> cistron) => ((ICistronInterpreter<object>)this).Interpret(cistron); // only works for reference types
+    object Interpret(IReadOnlyList<byte> cistron) => ((ICistronInterpreter<object>)this).Interpret(cistron); // only works for reference types
     int MinBitCount { get; }
     int MaxBitCount { get; }
     int MinByteCount => (MinBitCount + 7) / 8;
-    int MaxByteCount { get { checked { return (MaxBitCount + 7) / 8; } } }
+    public int MaxByteCount { get { checked { return (MaxBitCount + 7) / 8; } } }
     ReadOnlyCollection<byte>? InitialEncodedValue => default;
     bool ImplicitStopCodonAllowed => MaxBitCount > int.MaxValue / 2;
     // byte[] ReverseEngineer(TCodon startCodon, T? value, TCodon stopCodon);
@@ -616,5 +608,5 @@ public interface IMultiCistronMerger  // decides which is recessive, dominant, o
 }
 public interface ICistronInterpreter<out T> : ICistronInterpreter
 {
-    new T Interpret(ReadOnlySpan<byte> cistron);
+    new T Interpret(IReadOnlyList<byte> cistron);
 }

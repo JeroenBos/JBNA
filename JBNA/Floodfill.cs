@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-record struct Point
+public record struct Point
 {
     public int X { get; }
     public int Y { get; }
@@ -22,6 +22,7 @@ record struct Rectangle
     public int Y { get; }
     public int Width { get; }
     public int Height { get; }
+    [DebuggerHidden] public Point TopLeft => new Point(X, Y);
     [DebuggerHidden]
     public Rectangle(int x, int y, int width, int height)
     {

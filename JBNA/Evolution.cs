@@ -11,7 +11,7 @@ namespace JBNA
         private static readonly Random rng = new Random();
 
         private ReadOnlyStartCodonCollection<CistronSpec> nature;
-        // private readonly IReadOnlyList<ICistronSpec> specs => nature.;
+        // private readonly IReadOnlyList<CistronSpec> specs => nature.;
         private readonly Func<ReadOnlyStartCodonCollection<CistronSpec>, Random, Genome<P>> drawGenome;
         private readonly Func<object?[], float> scoreFunction;
         private readonly Random random;

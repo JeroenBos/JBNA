@@ -26,17 +26,17 @@ internal static class FunctionSpecFactory
             this.domainMax = domainMax;
         }
 
-        public T Interpret(ReadOnlySpan<byte> cistron)
+        public T Interpret(IReadOnlyList<byte> cistron)
         {
-            Assert(cistron.Length > 0);
+            Assert(cistron.Count > 0);
 
             float twoPiOverP = 2 * (float)Math.PI / (this.domainMax - this.domainMin);
             byte a_0 = cistron[0];
-            bool ab_odd = cistron.Length % 2 == 0;
-            int N = (cistron.Length - 1) / 2;
+            bool ab_odd = cistron.Count % 2 == 0;
+            int N = (cistron.Count - 1) / 2;
             byte[] a_n = new byte[N + (ab_odd ? 1 : 0)];
             byte[] b_n = new byte[N];
-            Assert(a_n.Length + b_n.Length + 1 == cistron.Length);
+            Assert(a_n.Length + b_n.Length + 1 == cistron.Count);
             for (int i = 1; i < N; i++)
             {
                 a_n[i] = cistron[2 * i - 1];
@@ -64,7 +64,7 @@ internal static class FunctionSpecFactory
 
 
 
-        object ICistronInterpreter.Interpret(ReadOnlySpan<byte> cistron) => Interpret(cistron);
+        object ICistronInterpreter.Interpret(IReadOnlyList<byte> cistron) => Interpret(cistron);
     }
 
 }
