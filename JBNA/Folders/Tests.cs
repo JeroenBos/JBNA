@@ -1,20 +1,21 @@
 ﻿using JBNA;
-using JBNA.Folders;
+using JBNA.Tests;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Xunit;
 
-
-// new FloodFillTests().TestFloodfillF();
-new Tests().Test_Function_Converges();
 Console.WriteLine("Done");
+// new FloodFillTests().TestFloodfillF();
+new IntegrationTests().Test_Function_Converges();
 
-namespace JBNA.Folders
+namespace JBNA.Tests
 {
-    internal class Tests
+    public class IntegrationTests
     {
+        [Fact]
         public void Test_Number_Converges()
         {
             int populationSize = 100;
@@ -38,6 +39,7 @@ namespace JBNA.Folders
             Assert(finalScore[0] > 9.5);
         }
 
+        [Fact]
         public void Test_Number_Converges_With_Defaults()
         {
             int populationSize = 100;
@@ -61,6 +63,7 @@ namespace JBNA.Folders
             Assert(finalScore[0] > 9.5);
         }
 
+        [Fact]
         public void Test_Function_Converges()
         {
             int populationSize = 10;

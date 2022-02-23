@@ -1,12 +1,16 @@
 using JBSnorro.Diagnostics;
+using Xunit;
+
 public class FloodFillTests
 {
+    [Fact]
     public void TestFloodfillA()
     {
         var rects = Floodfill.DivideMapInAreas(new int[,] { { 0 } });
 
         Contract.AssertSequenceEqual(rects, Array.Empty<Rectangle>());
     }
+    [Fact]
     public void TestFloodfillB()
     {
         var rects = Floodfill.DivideMapInAreas(new int[,] { { 1 } });
@@ -14,6 +18,7 @@ public class FloodFillTests
         if (!rects.SequenceEqual(new[] { new Rectangle(0, 0, 1, 1) }))
             throw new Exception();
     }
+    [Fact]
     public void TestFloodfillC()
     {
         var rects = Floodfill.DivideMapInAreas(
@@ -28,6 +33,7 @@ public class FloodFillTests
             throw new Exception();
     }
 
+    [Fact]
     public void TestFloodfillD()
     {
         var rects = Floodfill.DivideMapInAreas(
@@ -42,6 +48,7 @@ public class FloodFillTests
             throw new Exception();
     }
 
+    [Fact]
     public void TestFloodfillE()
     {
         var map = new int[,] {
@@ -57,6 +64,7 @@ public class FloodFillTests
             throw new Exception();
     }
 
+    [Fact]
     public void TestFloodfillF()
     {
         var map = new int[,] {

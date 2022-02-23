@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JBSnorro;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -11,7 +12,7 @@ namespace JBNA
     internal class RandomGeneration
     {
         public const int MaxByteCountForAnything = 10000;
-        public static ReadOnlyStartCodonCollection<CistronSpec> CreateRandomHaploidNature(IReadOnlyList<CistronSpec> specs, Random random, bool add_defaults = true)
+        public static Nature CreateRandomHaploidNature(IReadOnlyList<CistronSpec> specs, Random random, bool add_defaults = true)
         {
             // Add defaults
             var cistronSpecByAlleles = specs.ToDictionary(cistron => cistron.Allele);
@@ -32,40 +33,19 @@ namespace JBNA
             // order in which the cistrons will be placed in the chromosomes
             var order = random.GenerateUniqueRandomNumbers(specs.Count, specs.Count);
 
-            var nature = new ReadOnlyStartCodonCollection<CistronSpec>(specs, random);
+            var nature = new Nature(specs, random);
             return nature;
         }
-        public static HaploidalGenome CreateRandomHaploid(ReadOnlyStartCodonCollection<CistronSpec> nature, Random random)
+        public static HaploidalGenome CreateRandomHaploid(Nature nature, Random random)
         {
             var genome = new HaploidalGenome(nature, out List<Chromosome> chromosomes);
 
             var sequencesToInsert = new List<byte[]>();
-            TCodon stopCodon = genome.CodonCollection.StopCodon;
             foreach (var spec in nature.Objects.Values)
             {
-                if (!genome.CodonCollection.ReverseObjects.TryGetValue(spec, out TCodon startCodon))
-                    throw new Exception($"No start codon assigned to '{spec.Allele}'");
 
-                ReadOnlyCollection<byte>? initialEncoding = spec.Interpreter.InitialEncodedValue;
-                byte[] encoding;
-                if (initialEncoding != null)
-                {
-                    encoding = new byte[1 + initialEncoding.Count + 1];
-                    initialEncoding.CopyTo(encoding, 1);
-                }
-                else
-                {
-                    int lengthRange = Math.Min(spec.Interpreter.MaxByteCount - spec.Interpreter.MinByteCount, MaxByteCountForAnything);
-                    int cistronLength = spec.Interpreter.MinByteCount + random.Next(lengthRange);
-                    encoding = new byte[1 + cistronLength + 1];
-                    for (int i = 1; i < encoding.Length - 1; i++)
-                    {
-                        encoding[i] = (byte)random.Next(256);
-                    }
-                }
-                encoding[0] = startCodon;
-                encoding[encoding.Length - 1] = stopCodon;
-                sequencesToInsert.Add(encoding);
+                var initialEncoding = GetInitialEncoding(spec, nature, random);
+                sequencesToInsert.Add(initialEncoding);
             }
 
             int nonJunkLength = sequencesToInsert.Aggregate(0, (s, array) => s + array.Length);
@@ -99,18 +79,56 @@ namespace JBNA
                                    .Select(_ => random.Next(junkLength + 1))
                                    .OrderBy(_ => _)
                                    .Select((indexInChromosome, cistronIndex) => indexInChromosome + (cistronIndex == 0 ? 0 : sequencesToInsert[cistronIndex - 1].Length))
+                                   .Scan(0, (junkSkipCount, cumulativeIndexInChromosome) => junkSkipCount + cumulativeIndexInChromosome)
                                    .ToList();
 
 
             byte[] chromosome = new byte[totalLength];
             random.NextBytes(chromosome);
             chromosomes.Add(new Chromosome(chromosome, genome.CodonCollection));
-
-            foreach (var (insertIndex, sequence) in splitIndices.Zip(sequencesToInsert))
+#if DEBUG
+            BitArray bitArray = new BitArray(chromosome.Length);
+#endif
+            foreach (var (insertIndex, sequence) in Enumerable.Zip(splitIndices, sequencesToInsert))
             {
+#if DEBUG
+                for (int i = insertIndex; i < insertIndex + sequence.Length; i++)
+                    if (bitArray[i])
+                        throw new Exception();
+                    else
+                        bitArray[i] = true;
+#endif
                 sequence.CopyTo(chromosome, insertIndex);
             }
             return genome;
+        }
+        private static byte[] GetInitialEncoding(CistronSpec spec, Nature nature, Random random)
+        {
+            if (!nature.ReverseObjects.TryGetValue(spec, out TCodon startCodon))
+                throw new Exception($"No start codon assigned to '{spec.Allele}'");
+
+
+            var initialEncoding = spec.Interpreter.InitialEncodedValue;
+            byte[] encoding;
+            if (initialEncoding != null)
+            {
+                encoding = new byte[1 + initialEncoding.Count + 1];
+                initialEncoding.CopyTo(encoding, 1);
+            }
+            else
+            {
+                int lengthRange = Math.Min(spec.Interpreter.MaxByteCount - spec.Interpreter.MinByteCount, MaxByteCountForAnything);
+                int cistronLength = spec.Interpreter.MinByteCount + random.Next(lengthRange);
+                encoding = new byte[1 + cistronLength + 1];
+                for (int i = 1; i < encoding.Length - 1; i++)
+                {
+                    encoding[i] = (byte)random.Next(256);
+                }
+            }
+
+            encoding[0] = startCodon;
+            encoding[encoding.Length - 1] = nature.StopCodon;
+            return encoding;
         }
     }
 

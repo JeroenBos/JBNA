@@ -162,6 +162,63 @@ public static class Extensions
             return 0;
         return (float)Math.Sqrt(sum / count);
     }
+
+    public static IEnumerable<byte> InsertBits(this IEnumerable<byte> bytes, int[] sortedBitIndices, bool[] values)
+    {
+        if (sortedBitIndices.Length == 0)
+            return bytes;
+
+        const int nLength = 8;
+        byte[] source = bytes as byte[] ?? bytes.ToArray();
+        var newLength = source.Length + ((values.Length + (nLength - 1)) / nLength);
+        byte[] dest = new byte[newLength];
+        int shift = 0;
+        foreach (var (startBitIndex, endBitIndex) in sortedBitIndices.Windowed2())
+        {
+            // bit will be inserted at endBitIndex
+            int startByteIndex = (startBitIndex + (nLength - 1)) / nLength;
+            int endByteIndex = (endBitIndex + (nLength - 1)) / nLength;
+            if (shift % nLength == 0)
+            {
+                int length = endByteIndex - startByteIndex;
+                Array.Copy(source, startByteIndex, dest, startByteIndex + (shift / nLength), length);
+            }
+            else
+            {
+                int i = startByteIndex;
+                int previous = i == 0 ? 0 : (source[i - 1] >> PositiveRemainder(nLength - shift - 1, nLength));
+                int next = source[i] << PositiveRemainder(shift, nLength);
+                dest[i] = (byte)(previous | next);
+
+                for (i++; i < endByteIndex; i++)
+                {
+                    int b = (source[i - 1] >> PositiveRemainder(nLength - shift, nLength)) | (source[i] << PositiveRemainder(shift, nLength));
+                    dest[i + (shift / nLength)] = (byte)b;
+                }
+                previous = source[i] >> PositiveRemainder(nLength - shift, nLength);
+                int middle = 1 << PositiveRemainder(shift, nLength);
+                next = source[i] << PositiveRemainder(shift + 1, nLength);
+
+                dest[i] = (byte)(previous | middle | next);
+            }
+
+            shift++;
+        }
+        return dest;
+
+        // I want a remainder that returns the positive remainder
+        static int PositiveRemainder(int dividend, int divisor)
+        {
+            if (divisor < 0)
+                throw new NotImplementedException();
+            int remainder = dividend % divisor;
+            if (dividend >= 0)
+                return remainder;
+            var result = remainder + divisor;
+            return result;
+        }
+    }
+
     public static ArraySegment<T> AsArraySegment<T>(this IReadOnlyList<T> list)
     {
         if (list is ArraySegment<T> arraySegment)

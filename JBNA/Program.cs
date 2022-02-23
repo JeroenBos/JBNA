@@ -1,6 +1,7 @@
 ﻿global using TCodon = System.Byte;
 global using HaploidalGenome = JBNA.Genome<JBNA.Chromosome>;
 global using DiploidalGenome = JBNA.Genome<JBNA.DiploidChromosome>;
+global using Nature = JBNA.ReadOnlyStartCodonCollection<JBNA.CistronSpec>;
 
 using JBSnorro;
 using System;
@@ -15,17 +16,17 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
     public Genome(IReadOnlyList<TPloidality> chromosomes, IEnumerable<CistronSpec> specs, Random random)
     {
         this.Chromosomes = chromosomes;
-        this.CodonCollection = new ReadOnlyStartCodonCollection<CistronSpec>(specs.ToList(), random);
+        this.CodonCollection = new Nature(specs.ToList(), random);
     }
     /// <summary>
     /// Creates the CodonCollection before the chromosomes need to be created; useful for random chromosome generation.
     /// </summary>
-    internal Genome(ReadOnlyStartCodonCollection<CistronSpec> nature, out List<TPloidality> chromosomes)
+    internal Genome(Nature nature, out List<TPloidality> chromosomes)
     {
         this.CodonCollection = nature;
         this.Chromosomes = chromosomes = new List<TPloidality>();
     }
-    private Genome(ReadOnlyStartCodonCollection<CistronSpec> nature, List<TPloidality> chromosomes)
+    private Genome(Nature nature, List<TPloidality> chromosomes)
     {
         this.CodonCollection = nature;
         this.Chromosomes = chromosomes;
@@ -33,7 +34,7 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
     private Dictionary<CistronSpec, int> SpecIndices => CodonCollection.SpecIndices;
     public IReadOnlyCollection<CistronSpec> Specs => SpecIndices.Keys;
     public IReadOnlyList<TPloidality> Chromosomes { get; }
-    internal ReadOnlyStartCodonCollection<CistronSpec> CodonCollection { get; }
+    internal Nature CodonCollection { get; }
     private object?[]? interpretations;
     private IReadOnlyList<TCodon> StartCodons => CodonCollection.StartCodons;  // for serialiation
     /// <summary>
@@ -107,7 +108,9 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
             throw new NotImplementedException("Hmmm, should the cistrons be indexed by startcodons, or alleles? ");
         // depending on the usage, I'd say. Can an Allele have multiple startCodons? In real life yes, here I'm inclined to say no.
         // if the answer _is_ no, then the length of the result must be 0 or 1 (either codon present or not) because merging has already happened
-        return result.Count == 0 ? null : result[0];
+        if (result.Count == 0)
+            return null;
+        return result[0];
     }
     internal object? Interpret(IReadOnlyList<Allele> alleles)
     {
@@ -213,7 +216,6 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
                 yield return pair;
         }
     }
-
     public IEnumerable<KeyValuePair<T, Range>> Split(byte[] data)
     {
         int index = 0;
@@ -247,21 +249,29 @@ public interface IHomologousSet<T> where T : IHomologousSet<T>
 public sealed class Chromosome : IHomologousSet<Chromosome>
 {
     internal int Length => this.data.Length;
-    internal readonly ReadOnlyStartCodonCollection<CistronSpec> codonCollection;
+    internal readonly Nature nature;
     private readonly byte[] data;
     private bool frozen = false;
-    public Chromosome(byte[] data, ReadOnlyStartCodonCollection<CistronSpec> codonCollection)
+    public Chromosome(byte[] data, Nature codonCollection)
     {
         this.data = data;
-        this.codonCollection = codonCollection;
+        this.nature = codonCollection;
     }
 
+
+    public IEnumerable<Allele> Alleles
+    {
+        get
+        {
+            return this.nature.Split(this.data).Select(_ => _.Key.Allele);
+        }
+    }
     int IHomologousSet<Chromosome>.Count => 1;
 
     public IEnumerable<(CistronSpec, Func<object>)> FindCistrons()
     {
         this.frozen = true;
-        foreach (var (cistronSpec, range) in codonCollection.Split(this.data))
+        foreach (var (cistronSpec, range) in nature.Split(this.data))
         {
             if (Index.End.Equals(range.End))
             {
@@ -320,7 +330,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
             source.CopyTo(newChromosomeData, range.First, range.Second - range.First);
             side = 1 - side; // alternate 
         }
-        var newChromosome = new Chromosome(newChromosomeData, this.codonCollection);
+        var newChromosome = new Chromosome(newChromosomeData, this.nature);
         newChromosome.Mutate(interpret, random);
         return newChromosome;
     }
@@ -423,6 +433,8 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     private void InsertBits(int[] bitIndices, IList<bool> bits)
     {
         Assert(bitIndices.Length == bits.Count);
+
+        // we're in the middle of converting everything to use bits rather than bytes. This is next
         throw new NotImplementedException();
     }
     private static float GetMutationRate(Func<Allele, object?> interpret)
@@ -455,7 +467,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     }
     private Chromosome Clone()
     {
-        return new Chromosome((byte[])this.data.Clone(), this.codonCollection);
+        return new Chromosome((byte[])this.data.Clone(), this.nature);
     }
 
     Chromosome IHomologousSet<Chromosome>.Reproduce(Chromosome mate, Func<Allele, object?> interpret, Random random)
@@ -470,12 +482,12 @@ public sealed class DiploidChromosome : IHomologousSet<DiploidChromosome>
 {
     public Chromosome A { get; }
     public Chromosome B { get; }
-    private ReadOnlyStartCodonCollection<CistronSpec> codonCollection => A.codonCollection;
+    private Nature codonCollection => A.nature;
 
     int IHomologousSet<DiploidChromosome>.Count => 2;
     public DiploidChromosome(Chromosome a, Chromosome b)
     {
-        Assert(ReferenceEquals(a.codonCollection, b.codonCollection));
+        Assert(ReferenceEquals(a.nature, b.nature));
         this.A = a;
         this.B = b;
     }
@@ -577,12 +589,23 @@ public class CistronSpec
     public static IReadOnlyCollection<CistronSpec> Defaults { get; }
 
 
-
     public Allele Allele { get; init; } = Allele.Custom;
     public bool Meta { get; init; } = false;
     public bool Required { get; init; } = true;
     public ICistronInterpreter Interpreter { get; init; } = default!;
     public IMultiCistronMerger? Merger { get; }
+
+    public override string ToString()
+    {
+        var type = Interpreter.GetType().FindInterfaces((Type t, object? _) => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(ICistronInterpreter<>), null);
+        if (type.Length == 0)
+            return $"CistronSpec(Allele.{this.Allele})";
+        else
+        {
+            var t = type[0].GetGenericArguments()[0];
+            return $"CistronSpec<{t.Name}>(Allele.{this.Allele})";
+        }
+    }
 }
 public interface ICistronInterpreter
 {
