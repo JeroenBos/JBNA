@@ -1,4 +1,4 @@
-﻿global using TCodon = System.Byte;
+﻿global using TCodon = System.UInt64;
 global using HaploidalGenome = JBNA.Genome<JBNA.Chromosome>;
 global using DiploidalGenome = JBNA.Genome<JBNA.DiploidChromosome>;
 global using Nature = JBNA.ReadOnlyStartCodonCollection<JBNA.CistronSpec>;
@@ -8,6 +8,7 @@ using System;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Linq;
+using JBSnorro.Collections;
 
 namespace JBNA;
 
@@ -139,7 +140,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
     private ReadOnlyStartCodonCollection(IReadOnlyCollection<T> objects, IReadOnlyList<TCodon> keys)
     {
         Assert(objects.Count < 253);
-        CodonBitLength = 8;
+        CodonBitLength = 16;
         Assert(!keys.Contains((TCodon)255));
 
         var dict = new Dictionary<TCodon, T>(objects.Count);
@@ -165,7 +166,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
         StartCodons = this.Objects.Keys.ToArray();
     }
     public int CodonBitLength { get; }
-    public int CodonByteLength => (CodonBitLength + 7) / 8;
+    internal int CodonDataLength => (CodonBitLength + 63) / 64;
     public TCodon StopCodon { get; }
     public int StopCodonByteLength { get; }
     /// <summary>
@@ -181,14 +182,14 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
     public Dictionary<Allele, T> CistronsByAllele { get; }
     public IReadOnlyList<TCodon> StartCodons { get; }
 
-    public bool TryFindNext(byte[] data, int startIndex, out T? value)
+    public bool TryFindNext(TCodon[] data, int startIndex, out T? value)
     {
         return TryFindNext(data, startIndex, out value, out var _);
     }
-    public bool TryFindNext(byte[] data, int startIndex, out T? value, out int index)
+    public bool TryFindNext(TCodon[] data, int startIndex, out T? value, out int index)
     {
-        Assert(CodonByteLength == 1);
-        Assert(CodonBitLength == 8);
+        Assert(CodonDataLength == 1);
+        Assert(CodonBitLength == 16);
         for (int i = startIndex; i < data.Length; i++)
         {
             if (this.Objects.TryGetValue(data[i], out var codon))
@@ -202,12 +203,12 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
         value = default;
         return false;
     }
-    public Index FindStopCodon(byte[] data, int startIndex)
+    public Index FindStopCodon(TCodon[] data, int startIndex)
     {
         Assert(StopCodonByteLength == 1); // implementation depends on it
         return data.FindCodon(this.StopCodon, startIndex);
     }
-    public IEnumerable<KeyValuePair<T, Range>> TryFind(byte[] data, TCodon codon)
+    public IEnumerable<KeyValuePair<T, Range>> TryFind(BitArray data, TCodon codon)
     {
         foreach (var pair in this.Split(data))
         {
@@ -216,12 +217,16 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
                 yield return pair;
         }
     }
-    public IEnumerable<KeyValuePair<T, Range>> Split(byte[] data)
+    /// <summary>
+    /// Splits the data into cistrons.
+    /// </summary>
+    public IEnumerable<KeyValuePair<T, Range>> Split(BitArray data)
     {
         int index = 0;
-        while (TryFindNext(data, index, out var value, out var codonIndex))
+        int foundIndex = -1;
+        while ((foundIndex = data.Find(CodonStart index, out var value, out var codonIndex) != -1)
         {
-            int cistronStartIndex = codonIndex + this.CodonByteLength;
+            int cistronStartIndex = codonIndex + this.CodonDataLength;
             var stopCodonIndex = FindStopCodon(data, codonIndex);
 
             if (Index.End.Equals(stopCodonIndex))
@@ -235,6 +240,9 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
                 index = stopCodonIndex.Value + StopCodonByteLength;
             }
         }
+
+        while (foundIndex) ;
+
     }
 }
 public interface IHomologousSet<T> where T : IHomologousSet<T>
@@ -250,11 +258,16 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 {
     internal int Length => this.data.Length;
     internal readonly Nature nature;
-    private readonly byte[] data;
+    private readonly BitArray data;
     private bool frozen = false;
-    public Chromosome(byte[] data, Nature codonCollection)
+    //public Chromosome(byte[] data, Nature codonCollection)
+    //{
+    //    this.data = new Biy data;
+    //    this.nature = codonCollection;
+    //}
+    public Chromosome(TCodon[] data, Nature codonCollection)
     {
-        this.data = data;
+        this.data = BitArray.FromRef(data);
         this.nature = codonCollection;
     }
 
@@ -263,6 +276,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     {
         get
         {
+            this.data.Find(
             return this.nature.Split(this.data).Select(_ => _.Key.Allele);
         }
     }
@@ -380,21 +394,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 
         void Mutate(int mutationBitIndex)
         {
-            int byteIndex = mutationBitIndex / 8;
-            int bitIndex = mutationBitIndex % 8;
-            byte mask = (byte)(1 << bitIndex);
-            this.data[byteIndex] ^= mask; // flip the bit
-
-
-            // byte current = this.data[byteIndex];
-            // int result;
-            // if (current.HasBit(bitIndex))
-            //     result = current & ~mask;
-            // else
-            //     result = current | mask;
-            // 
-            // Assert(0 <= result && result < 256);
-            // this.data[byteIndex] = (byte)result;
+            this.data[mutationBitIndex] = !this.data[mutationBitIndex];
         }
     }
 

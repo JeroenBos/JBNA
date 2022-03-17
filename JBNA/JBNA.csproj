@@ -10,7 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="JBSnorro" Version="0.0.13" />
+	  <PackageReference Include="JBSnorro" Version="0.0.13" Condition="'$(Configuration)' != 'Debug'" />
+      <ProjectReference Include="..\JBSnorro\JBSnorro\JBSnorro.csproj" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 
   <ItemGroup>
