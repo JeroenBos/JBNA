@@ -1,4 +1,5 @@
 using Xunit;
+using JBSnorro;
 
 public class BinaryReaderTests
 {
