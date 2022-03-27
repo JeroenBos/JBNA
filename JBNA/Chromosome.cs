@@ -28,8 +28,9 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     {
         get
         {
-            this.data.Find(
-            return this.nature.FindAllCodons(this.data).Select(_ => _.Key.Allele);
+            return this.nature
+                       .FindAllCistrons(this.data)
+                       .Select(p => p.Key.Allele);
         }
     }
     int IHomologousSet<Chromosome>.Count => 1;
@@ -37,7 +38,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     public IEnumerable<(CistronSpec, Func<object>)> FindCistrons()
     {
         this.frozen = true;
-        foreach (var (cistronSpec, range) in nature.FindAllCodons(this.data))
+        foreach (var (cistronSpec, range) in nature.FindAllCistrons(this.data))
         {
             if (Index.End.Equals(range.End))
             {

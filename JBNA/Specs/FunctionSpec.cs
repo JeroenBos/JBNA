@@ -1,10 +1,11 @@
 ﻿using JBSnorro;
+using JBSnorro.Collections;
 using System.Linq;
 using T = System.Func<float, float>;
 
 namespace JBNA;
 
-internal static class FunctionSpecFactory 
+internal static class FunctionSpecFactory
 {
     public static ICistronInterpreter<T> CreateFourierFunction(float minDomain = -1, float maxDomain = 1)
     {
@@ -13,7 +14,15 @@ internal static class FunctionSpecFactory
 
     internal class FourierFunctionCistronInterpreter : ICistronInterpreter<T>
     {
-        public int MinBitCount { get; } = 8;
+        /// <summary>
+        /// The number of bits at the beginning of the cistron that encode how many bits encode each subsequent number.
+        /// </summary>
+        private int bitsPerNumberBitLength;
+        /// <summary>
+        /// The minimum number of bits required to encode the first number (after the bitsPerNumber).
+        /// </summary>
+        const int minBitsForFirstNumber = 0;
+        public int MinBitCount => bitsPerNumberBitLength + minBitsForFirstNumber;
         public int MaxBitCount { get; } = int.MaxValue;
         public int MaxByteCount => MaxBitCount;
 
@@ -26,9 +35,11 @@ internal static class FunctionSpecFactory
             this.domainMax = domainMax;
         }
 
-        public T Interpret(IReadOnlyList<byte> cistron)
+        public T Interpret(BitArrayReadOnlySegment cistron)
         {
             Assert(cistron.Count > 0);
+            new BitReader(
+            int     bitsPerNumber = cistron.Read
 
             float twoPiOverP = 2 * (float)Math.PI / (this.domainMax - this.domainMin);
             byte a_0 = cistron[0];
@@ -64,7 +75,7 @@ internal static class FunctionSpecFactory
 
 
 
-        object ICistronInterpreter.Interpret(IReadOnlyList<byte> cistron) => Interpret(cistron);
+        object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
     }
 
 }

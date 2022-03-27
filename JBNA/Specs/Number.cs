@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using JBSnorro.Collections;
+using System.Linq;
 
 namespace JBNA;
 
@@ -63,13 +64,13 @@ public static class NumberSpec
         public int MinBitCount { get; } = 1;
         public int MaxBitCount { get; } = 1;
 
-        public byte[] ReverseEngineer(TCodon startCodon, byte value, TCodon stopCodon)
-        {
-            Assert(typeof(TCodon) == typeof(byte));
-            return new byte[] { startCodon, value, stopCodon };
-        }
+        //public byte[] ReverseEngineer(TCodon startCodon, byte value, TCodon stopCodon)
+        //{
+        //    Assert(typeof(TCodon) == typeof(byte));
+        //    return new byte[] { startCodon, value, stopCodon };
+        //}
 
-        object ICistronInterpreter.Interpret(IReadOnlyList<byte> cistron) => Interpret(cistron);
+        object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
     }
     internal class UniformFloatInterpreter : ICistronInterpreter<float>
     {
@@ -85,7 +86,7 @@ public static class NumberSpec
             this.Min = min;
             this.Max = max;
         }
-        public float Interpret(IReadOnlyList<byte> cistron)
+        public float Interpret(BitArrayReadOnlySegment cistron)
         {
             Assert(cistron.Count == 1);
             byte b = byteInterpreter.Interpret(cistron);
@@ -103,7 +104,7 @@ public static class NumberSpec
             return new byte[] { startCodon, encoded, stopCodon };
         }
 
-        object ICistronInterpreter.Interpret(IReadOnlyList<byte> cistron) => Interpret(cistron);
+        object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
     }
 }
 

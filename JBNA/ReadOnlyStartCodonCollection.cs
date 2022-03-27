@@ -58,7 +58,6 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
             i++;
         }
         this.Objects = dict;
-        this.StopCodonByteLength = 1;
         this.StopCodon = 0;
         Assert(!dict.ContainsKey(this.StopCodon));
         this.ReverseObjects = this.Objects.ToDictionary(keySelector: _ => _.Value, elementSelector: _ => _.Key);

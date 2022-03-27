@@ -51,5 +51,5 @@ public interface IMultiCistronMerger  // decides which is recessive, dominant, o
 }
 public interface ICistronInterpreter<out T> : ICistronInterpreter
 {
-    new T Interpret(IReadOnlyList<byte> cistron);
+    new T Interpret(BitArrayReadOnlySegment cistron);
 }
