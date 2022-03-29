@@ -1,7 +1,6 @@
 ﻿global using TCodon = System.UInt64;
 global using HaploidalGenome = JBNA.Genome<JBNA.Chromosome>;
 global using DiploidalGenome = JBNA.Genome<JBNA.DiploidChromosome>;
-global using Nature = JBNA.ReadOnlyStartCodonCollection<JBNA.CistronSpec>;
 using System.Collections.ObjectModel;
 using JBSnorro.Collections;
 
@@ -33,12 +32,10 @@ public interface ICistronInterpreter
     /// The purpose of this function is to transform the data in a <typeparamref name="T"/> 
     /// where similar input corresponding to similar output, is a approximately continuous fashion.
     /// </summary>
-    /// <returns> An <see cref="ICistron"/> or an <see cref="ICistron"/>-like.</returns>
+    /// <returns> A series of bit representing a cistron. Specifically it does not include the start and stop codons. </returns>
     object Interpret(BitArrayReadOnlySegment cistron) => ((ICistronInterpreter<object>)this).Interpret(cistron); // only works for reference types
-    int MinBitCount { get; }
-    int MaxBitCount { get; }
-    int MinByteCount => (MinBitCount + 7) / 8;
-    public int MaxByteCount { get { checked { return (MaxBitCount + 7) / 8; } } }
+    ulong MinBitCount { get; }
+    ulong MaxBitCount { get; }
     ReadOnlyCollection<byte>? InitialEncodedValue => default;
     bool ImplicitStopCodonAllowed => MaxBitCount > int.MaxValue / 2;
     // byte[] ReverseEngineer(TCodon startCodon, T? value, TCodon stopCodon);
@@ -51,5 +48,6 @@ public interface IMultiCistronMerger  // decides which is recessive, dominant, o
 }
 public interface ICistronInterpreter<out T> : ICistronInterpreter
 {
-    new T Interpret(BitArrayReadOnlySegment cistron);
+     /// <inheritdoc/>
+     new T Interpret(BitArrayReadOnlySegment cistron);
 }

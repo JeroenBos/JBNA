@@ -1,9 +1,11 @@
+using JBSnorro.Collections;
+
 namespace JBNA;
 
 public delegate TResult RangelessDelegate<T, TResult>(T input, T min, T max);
 public interface IRangelessFunctionSpec<T, TResult> : ICistronInterpreter<Func<T, T, T, TResult>>
 {
-    new RangelessDelegate<T, TResult> Interpret(IReadOnlyList<byte> cistron);
+    new RangelessDelegate<T, TResult> Interpret(BitArrayReadOnlySegment cistron);
 }
 
 
@@ -42,8 +44,8 @@ public static class CistronExtensions
 
 class RangedFunctionSpec<T, TIntermediate, TResult> : ICistronInterpreter<Func<T, TResult>>
 {
-    public int MinBitCount => rangelessFunctionSpec.MinBitCount;
-    public int MaxBitCount => rangelessFunctionSpec.MaxBitCount;
+    public ulong MinBitCount => rangelessFunctionSpec.MinBitCount;
+    public ulong MaxBitCount => rangelessFunctionSpec.MaxBitCount;
     private readonly IRangelessFunctionSpec<TIntermediate, TResult> rangelessFunctionSpec;
     private readonly TIntermediate min;
     private readonly TIntermediate max;
@@ -58,7 +60,7 @@ class RangedFunctionSpec<T, TIntermediate, TResult> : ICistronInterpreter<Func<T
         this.max = max;
         this.map = map;
     }
-    public Func<T, TResult> Interpret(IReadOnlyList<byte> cistron)
+    public Func<T, TResult> Interpret(BitArrayReadOnlySegment cistron)
     {
         return f;
         TResult f(T input)
@@ -75,8 +77,8 @@ class RangedFunctionSpec<T, TIntermediate, TResult> : ICistronInterpreter<Func<T
 
 class RangelessFunctionSpec<T, TIntermediate, TResult> : IRangelessFunctionSpec<T, TResult>
 {
-    public int MinBitCount => rangedFunctionSpec.MinBitCount;
-    public int MaxBitCount => rangedFunctionSpec.MaxBitCount;
+    public ulong MinBitCount => rangedFunctionSpec.MinBitCount;
+    public ulong MaxBitCount => rangedFunctionSpec.MaxBitCount;
     private readonly ICistronInterpreter<Func<TIntermediate, TResult>> rangedFunctionSpec;
     private readonly RangelessDelegate<T, TIntermediate> mapToRange;
     public RangelessFunctionSpec(ICistronInterpreter<Func<TIntermediate, TResult>> rangedFunctionSpec,
@@ -85,7 +87,7 @@ class RangelessFunctionSpec<T, TIntermediate, TResult> : IRangelessFunctionSpec<
         this.rangedFunctionSpec = rangedFunctionSpec;
         this.mapToRange = mapToRange;
     }
-    public RangelessDelegate<T, TResult> Interpret(IReadOnlyList<byte> cistron)
+    public RangelessDelegate<T, TResult> Interpret(BitArrayReadOnlySegment cistron)
     {
         // we assume the function kind is already known. That is, this is a particular kind of function,
         // as defined by the rangedFunctionSpec.
@@ -102,7 +104,7 @@ class RangelessFunctionSpec<T, TIntermediate, TResult> : IRangelessFunctionSpec<
         }
     }
 
-    Func<T, T, T, TResult> ICistronInterpreter<Func<T, T, T, TResult>>.Interpret(IReadOnlyList<byte> cistron)
+    Func<T, T, T, TResult> ICistronInterpreter<Func<T, T, T, TResult>>.Interpret(BitArrayReadOnlySegment cistron)
     {
         return new Func<T, T, T, TResult>(Interpret(cistron));
     }

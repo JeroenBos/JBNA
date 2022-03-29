@@ -17,14 +17,13 @@ internal static class FunctionSpecFactory
         /// <summary>
         /// The number of bits at the beginning of the cistron that encode how many bits encode each subsequent number.
         /// </summary>
-        private int bitsPerNumberBitLength;
+        private uint bitsPerNumberBitLength;
         /// <summary>
         /// The minimum number of bits required to encode the first number (after the bitsPerNumber).
         /// </summary>
-        const int minBitsForFirstNumber = 0;
-        public int MinBitCount => bitsPerNumberBitLength + minBitsForFirstNumber;
-        public int MaxBitCount { get; } = int.MaxValue;
-        public int MaxByteCount => MaxBitCount;
+        const int bitsForFirstNumber = 5;
+        public ulong MinBitCount => bitsPerNumberBitLength + bitsForFirstNumber;
+        public ulong MaxBitCount { get; } = int.MaxValue;
 
 
         private readonly float domainMin;
@@ -37,27 +36,30 @@ internal static class FunctionSpecFactory
 
         public T Interpret(BitArrayReadOnlySegment cistron)
         {
-            Assert(cistron.Count > 0);
-            new BitReader(
-            int     bitsPerNumber = cistron.Read
+            Assert(cistron.Length >= this.MinBitCount);
+            var reader = cistron.ToBitReader();
+            
+            int nBits = reader.ReadInt32(bitsForFirstNumber); // in [0, 31]
+            Assert(reader.CanRead(nBits));
+
 
             float twoPiOverP = 2 * (float)Math.PI / (this.domainMax - this.domainMin);
-            byte a_0 = cistron[0];
-            bool ab_odd = cistron.Count % 2 == 0;
-            int N = (cistron.Count - 1) / 2;
-            byte[] a_n = new byte[N + (ab_odd ? 1 : 0)];
-            byte[] b_n = new byte[N];
-            Assert(a_n.Length + b_n.Length + 1 == cistron.Count);
+            var (N, rem) = Math.DivRem(checked((int)reader.RemainingLength), 2 * nBits);
+            bool ab_odd = rem >= nBits;
+            var  a_n = new int[N + (ab_odd ? 1 : 0)];
+            var b_n = new int[N];
+            
+            long a_0 = reader.ReadInt32(nBits);
             for (int i = 1; i < N; i++)
             {
-                a_n[i] = cistron[2 * i - 1];
-                b_n[i] = cistron[2 * i];
+                a_n[i] = reader.ReadInt32(nBits);
+                b_n[i] = reader.ReadInt32(nBits);
             }
             if (ab_odd)
-                a_n[^1] = cistron[^1];
-
+                a_n[^1] = reader.ReadInt32(nBits);
 
             return f;
+
             float f(float x)
             {
                 int n;

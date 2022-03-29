@@ -145,3 +145,29 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
         return this.FindAllCodons(data, startCodon).Select(p => KeyValuePair.Create(Objects[p.Key], p.Value));
     }
 }
+
+public class Nature : ReadOnlyStartCodonCollection<CistronSpec>
+{
+    public ulong MaxCistronLength = ushort.MaxValue; // TODO: implement. is not used everywhere yet
+    public UlongValue SubCistronStopCodon => new(0b1000_0001, 8);
+    public Nature(IReadOnlyCollection<CistronSpec> objects, Random random)
+        : base(objects, random)
+    {
+
+    }
+}
+
+public struct UlongValue
+{
+    public ulong Value { get; }
+    public int Length { get; }
+
+    public UlongValue(ulong value, int length)
+    {
+        if (length < 0 || length > 64) throw new ArgumentOutOfRangeException(nameof(length));
+        if ((value >> length) != 0) throw new ArgumentException(nameof(length));
+
+        this.Value = value;
+        this.Length = length;
+    }
+}

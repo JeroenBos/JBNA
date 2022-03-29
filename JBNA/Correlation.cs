@@ -1,38 +1,63 @@
+using JBSnorro;
+using JBSnorro.Collections;
+using JBSnorro.Diagnostics;
+using System.Net.WebSockets;
+
 namespace JBNA;
 
 /// <summary>
 /// Converts a linear byte array to a 1-dimensional function
 /// </summary>
-class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpreter<Func<int, byte[]>>
+class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpreter<Func<int, byte[]>>, ICistronInterpreter<Func<int, short[]>>, ICistronInterpreter<Func<int, Half[]>>
 {
-    internal const byte stopCodon = 0b_01010101;
+    private readonly Nature nature;
+    private readonly SubCistronInterpreter subInterpreter;
+    public CorrelationSpec(Nature nature)
+    {
+        var functionSpec = (MinBitCount: 0, MaxBitCount: 1UL);
+        var probabilitySpec = (MinBitCount: 0, MaxBitCount: 1UL);
+
+        this.nature = nature;
+        this.subInterpreter = new SubCistronInterpreter(nature, new[] { functionSpec, probabilitySpec });
+    }
 
     // the understanding here is that the cistron does not start with the type of function that it is
     // that is up to the parent cistron or allele to determine (preliminary design decision)
-    private ICistronInterpreter<Func<int, float>> get1DProbabilityFunction(byte type)
+    private ICistronInterpreter<Func<int, float>> get1DProbabilityFunction(BitArrayReadOnlySegment subcistron)
     {
         throw new NotImplementedException();
     }
-    private ICistronInterpreter<Func<int, int, float>> get2DProbabilityFunction(byte type)
+    private ICistronInterpreter<Func<int, int, float>> get2DProbabilityFunction(BitArrayReadOnlySegment subcistron)
     {
         throw new NotImplementedException();
     }
-    private ICistronInterpreter<Func<int, int, int, float>> get3DProbabilityFunction(byte type)
+    private ICistronInterpreter<Func<int, int, int, float>> get3DProbabilityFunction(BitArrayReadOnlySegment subcistron)
     {
         throw new NotImplementedException();
     }
-    public int MinBitCount => 8;
-    public int MaxBitCount => int.MaxValue;
-    public int MaxByteCount => ((ICistronInterpreter)this).MaxByteCount;
-    Func<int, bool[]> ICistronInterpreter<Func<int, bool[]>>.Interpret(IReadOnlyList<byte> cistron)
+    public ulong MinBitCount => 8;
+    public ulong MaxBitCount => this.nature.MaxCistronLength;
+    Func<int, bool[]> ICistronInterpreter<Func<int, bool[]>>.Interpret(BitArrayReadOnlySegment cistron)
     {
-        return this.Interpret(cistron).CreateBooleans;
+        var generator = (Generator1D)this.Interpret(cistron);
+        return generator.CreateBooleans;
     }
-    Func<int, byte[]> ICistronInterpreter<Func<int, byte[]>>.Interpret(IReadOnlyList<byte> cistron)
+    Func<int, byte[]> ICistronInterpreter<Func<int, byte[]>>.Interpret(BitArrayReadOnlySegment cistron)
     {
-        return this.Interpret(cistron).CreateBytes;
+        var generator = (Generator1D)this.Interpret(cistron);
+        return generator.CreateBytes;
     }
-    private Generator Interpret(IReadOnlyList<byte> cistron)
+    Func<int, short[]> ICistronInterpreter<Func<int, short[]>>.Interpret(BitArrayReadOnlySegment cistron)
+    {
+        var generator = (Generator1D)this.Interpret(cistron);
+        return generator.CreateShorts;
+    }
+    Func<int, Half[]> ICistronInterpreter<Func<int, Half[]>>.Interpret(BitArrayReadOnlySegment cistron)
+    {
+        var generator = (Generator1D)this.Interpret(cistron);
+        return generator.CreateHalfs;
+    }
+    private GeneratorBase Interpret(BitArrayReadOnlySegment cistron)
     {
         // let's say the cistrons represent a list of chunks, each chunk consisting of
         // - an index where the pattern starts
@@ -65,97 +90,161 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
 
         // The stopCodon should probably be different from the real cistron-stopping codon
 
-        if (cistron.Count > this.MaxByteCount)
+        if (cistron.Length > this.MaxBitCount)
             throw new GenomeInviableException("Too long pattern");
-        return Interpret<Generator, Func<int, float>>(cistron.AsArraySegment(), this.get1DProbabilityFunction, Generator.Create);
-    }
-    private Generator2D Interpret2D(ArraySegment<byte> cistron)
-    {
-        if (cistron.Count > this.MaxByteCount)
-            throw new GenomeInviableException("Too long pattern");
-        return Interpret<Generator2D, Func<int, int, float>>(cistron, this.get2DProbabilityFunction, Generator2D.Create);
-    }
-    private static TGenerator Interpret<TGenerator, FProbability>(
-        ArraySegment<byte> cistron,
-        Func<byte /*functionType*/, ICistronInterpreter<FProbability>> getProbabilityInterpreter,
-        Func<FProbability, ArraySegment<byte>, TGenerator> createGenerator)
-    {
-        Index rangeEnd = cistron.FindCodon(stopCodon);
-        if (rangeEnd.IsFromEnd)
-        {
-            // we could choose to interpret the range differently now
-            throw new GenomeInviableException($"{nameof(cistron)} does not contain a stopCodon");
-        }
-        if (rangeEnd.GetOffset(cistron.Count) == 0)
-        {
-            throw new GenomeInviableException($"{nameof(cistron)} starts with a stopCodon");
-        }
 
+        var subcistrons = this.subInterpreter.Interpret(cistron);
+        var probabilityFunctionCistron = subcistrons[0];
+        var patternCistron = subcistrons[1];
 
-        var functionType = cistron[0];
-        var probabilityFunctionCistron = cistron[1..rangeEnd];
-        var pattern = cistron[rangeEnd..];
-
-        var probabilityFunctionInterpreter = getProbabilityInterpreter(functionType);
-        var probabilityFunction = probabilityFunctionInterpreter.Interpret(probabilityFunctionCistron);
-
-        return createGenerator(probabilityFunction, pattern);
+        return new Generator1D(probabilityFunctionCistron, patternCistron, repeats: false);
     }
 
-    private class Generator
+
+    /// <summary>
+    /// Has the ability to repeating a pattern (provided in the form of bits) over a region using a probaility function.
+    /// If the probability at a certain point is higher than the threshold (currently a constant 0.5), then the pattern start there.
+    /// If the probability of the next point is also higher, then the pattern continues there.
+    /// Otherwise, the pattern can start at the point again.
+    /// </summary>
+    private class GeneratorBase
     {
-        private readonly Func<int, float> probabilityFunction;
-        private readonly ArraySegment<byte> pattern;
-        private readonly bool repeats;// as opposed to scales
-        private byte getPattern(int x, int length)
+        public BitArrayReadOnlySegment ProbabilityFunctionCistron { get; }
+        public BitArrayReadOnlySegment PatternCistron { get; }
+        public bool Repeats { get; }// as opposed to scales
+
+        // function as caches for the interfaces
+        public object? Pattern { get; set; }
+        public object? ProbabilityFunction { get; set; }
+
+        public GeneratorBase(BitArrayReadOnlySegment probabilityFunctionSubCistron, BitArrayReadOnlySegment patternSubcistron, bool repeats = false)
+         {
+             this.PatternCistron = patternSubcistron;
+             this.ProbabilityFunctionCistron = probabilityFunctionSubCistron;
+             this.Repeats = repeats;
+         }
+    }
+
+    interface IGenerator1D
+    {
+        BitArrayReadOnlySegment ProbabilityFunctionCistron { get; }
+        BitArrayReadOnlySegment PatternCistron { get; }
+        bool Repeats { get; }
+
+        bool[] CreateBooleans(int length) => Create(length, b => b > 127, bitsPerItem: 8);
+        byte[] CreateBytes(int length) => Create(length, s => (byte)s, bitsPerItem: 8);
+        short[] CreateShorts(int length) => Create(length, s => s);
+        Half[] CreateHalfs(int length) => Create(length, s => s.BitsAsHalf());
+
+
+        // 
+        object _probabilityFunction { get; set; }
+        object _pattern { get; set; }
+
+        Func<int, float> ProbabilityFunction
         {
-            if (repeats)
+            get
             {
-                return pattern[x % pattern.Count];
+                if (_probabilityFunction == null)
+                {
+                    _probabilityFunction = ...;
+                }
+                return (Func<int, float>)_probabilityFunction;
+            }
+        }
+        short[] Pattern
+        {
+            get
+            {
+                if (_pattern == null)
+                {
+                    _pattern = ...;
+                }
+                return (short[])_pattern;
+            }
+        }
+        /// <param name="i">The index in the pattern.</param>
+        /// <param name="length">The scale of the to-be-created mesh.</param>
+        private short getPattern(int i, int length)
+        {
+            if (this.Repeats)
+            {
+                return Pattern[i % Pattern.Length];
             }
             else
             {
-                return pattern[(x * pattern.Count) / length];
+                return Pattern[(i * Pattern.Length) / length];
             }
         }
-
-        public Generator(Func<int, float> probabilityFunction, ArraySegment<byte> pattern, bool repeats = false)
+        TResult[] Create<TResult>(int length, Func<short, TResult> selectResult, int bitsPerItem = 16)
         {
-            this.pattern = pattern;
-            this.probabilityFunction = probabilityFunction;
-            this.repeats = repeats;
-        }
-        public static Generator Create(Func<int, float> probabilityFunction, ArraySegment<byte> pattern) => new(probabilityFunction, pattern);
+            var reader = this.PatternCistron.ToBitReader();
+            Contract.Assert(reader.Length >= (ulong)bitsPerItem * (ulong)length);
 
-        private TResult[] Create<TResult>(int length, Func<byte, TResult> selectResult)
-        {
             int startIndex = int.MinValue;
             var result = new TResult[length];
             for (int i = 0; i < length; i++)
             {
-                if (probabilityFunction(i) >= 0.5)
+                if (ProbabilityFunction(i) >= 0.5)
                 {
                     if (startIndex != i - 1)
                     {
                         startIndex = i;
                     }
-                    result[i] = selectResult(pattern[i - startIndex]);
+                    result[i] = selectResult(getPattern(i - startIndex, length));
                 }
                 else
                     startIndex = int.MinValue;
             }
             return result;
         }
+    }
+    private record Generator1D : GeneratorBase
+    {
+        private readonly Func<int, float> probabilityFunction;
+        public Generator1D(BitArrayReadOnlySegment probabilityFunctionCistron, BitArrayReadOnlySegment pattern, bool repeats) : base(probabilityFunctionCistron, pattern, repeats)
+        {
+            probabilityFunction = probabilityFunctionCistron.ToFunction();
+        }
+
+        private byte getPattern(int x, int length)
+        {
+            if (repeats)
+            {
+                return pattern[x % pattern.Length];
+            }
+            else
+            {
+                return pattern[(x * pattern.Length) / length];
+            }
+        }
+
+
         public bool[] CreateBooleans(int length)
         {
             // this is not allowed to throw GenomeInviableExceptions
-            return Create<bool>(length, b => b > 127);
+            return Create<bool>(length, i => (i & 255) > 127);
         }
         public byte[] CreateBytes(int length)
         {
             // this is not allowed to throw GenomeInviableExceptions
-            return Create<byte>(length, b => b);
+            return Create<byte>(length, i => (byte)(i & 255)); 
         }
+        public short[] CreateShorts(int length)
+        {
+            // this is not allowed to throw GenomeInviableExceptions
+            return Create<short>(length, i => i);
+        }
+        public Half[] CreateHalfs(int length)
+        {
+            // this is not allowed to throw GenomeInviableExceptions
+            return Create<Half>(length, i => i.BitsAsHalf());
+        }
+        protected override Array Create<TResult>(int[] lengths, Func<short, TResult> selectResult) => Create(lengths.Single(), selectResult);
+        public override Array CreateBooleans(int[] lengths) => CreateBooleans(lengths.Single());
+        public override Array CreateBytes(int[] lengths) => CreateBytes(lengths.Single());
+        public override Array CreateShorts(int[] lengths) => CreateShorts(lengths.Single());
+        public override Array CreateHalfs(int[] lengths) => CreateHalfs(lengths.Single());
     }
     private class Generator2D
     {

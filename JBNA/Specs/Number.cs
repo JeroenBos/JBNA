@@ -56,13 +56,15 @@ public static class NumberSpec
             //return result;
         }
 
-        public byte Interpret(IReadOnlyList<byte> data)
+        public byte Interpret(BitArrayReadOnlySegment data)
         {
-            Assert(data.Count == 1);
-            return proximityOrder[data[0]];
+            Assert(data.Length != 0);
+            var bits = data.ToBitReader().ReadByte();
+            var result = proximityOrder[bits];
+            return result;
         }
-        public int MinBitCount { get; } = 1;
-        public int MaxBitCount { get; } = 1;
+        public ulong MinBitCount => 8;
+        public ulong MaxBitCount => 8;
 
         //public byte[] ReverseEngineer(TCodon startCodon, byte value, TCodon stopCodon)
         //{
@@ -76,8 +78,8 @@ public static class NumberSpec
     {
         private static readonly ICistronInterpreter<byte> byteInterpreter = NumberSpec.ByteFactory;
 
-        public int MinBitCount => byteInterpreter.MinBitCount;
-        public int MaxBitCount => byteInterpreter.MaxBitCount;
+        public ulong MinBitCount => byteInterpreter.MinBitCount;
+        public ulong MaxBitCount => byteInterpreter.MaxBitCount;
 
         public float Min { get; }
         public float Max { get; }
@@ -88,21 +90,21 @@ public static class NumberSpec
         }
         public float Interpret(BitArrayReadOnlySegment cistron)
         {
-            Assert(cistron.Count == 1);
+            Assert(cistron.Length == 8);
             byte b = byteInterpreter.Interpret(cistron);
 
             float result = this.Min + (this.Max - this.Min) * b / 255f;
             return result;
         }
 
-        public byte[] ReverseEngineer(byte startCodon, float value, byte stopCodon)
-        {
-            byte encoded = Enumerable.Range(0, 255)
-                                     .Select(i => (byte)i)
-                                     .MinBy(b => Math.Abs(value - Interpret(new byte[] { b })));
+        //public byte[] ReverseEngineer(byte startCodon, float value, byte stopCodon)
+        //{
+        //    byte encoded = Enumerable.Range(0, 255)
+        //                             .Select(i => (byte)i)
+        //                             .MinBy(b => Math.Abs(value - Interpret(new byte[] { b })));
 
-            return new byte[] { startCodon, encoded, stopCodon };
-        }
+        //    return new byte[] { startCodon, encoded, stopCodon };
+        //}
 
         object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
     }
