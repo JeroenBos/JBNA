@@ -64,7 +64,7 @@ internal class FunctionSpecFactory
             this.Nature=nature;
             this.selectElement=selectElement;
         }
-        public ulong MinBitCount => 1 + Nature.PatternLengthBitCount;
+        public ulong MinBitCount => 1UL + (ulong)Nature.PatternLengthBitCount;
         public ulong MaxBitCount => throw new NotImplementedException();
 
         public Func<T, int, TResult> Interpret(BitArrayReadOnlySegment cistron)
@@ -73,11 +73,11 @@ internal class FunctionSpecFactory
             bool repeats = reader.ReadBit();
             int patternLength = reader.ReadInt32(bitCount: Nature.PatternLengthBitCount);
 
-            var function = (Func<int, TResult>)Nature.FunctionFactory.Interpret1DFunction(cistron, this.selectElement);
-            
+
 
             if (typeof(T) == typeof(int))
             {
+                var function = (Func<int, TResult>)Nature.FunctionFactory.Interpret1DFunction(cistron, this.selectElement);
                 return (Func<T, int, TResult>)(object)impl;
                 TResult impl(int val, int dimension)
                 {
@@ -91,22 +91,24 @@ internal class FunctionSpecFactory
                     }
                 }
             }
-            else if (typeof(T) == typeof(int))
+            else if (typeof(T) == typeof(float))
             {
+                var function = (Func<float, TResult>)Nature.FunctionFactory.Interpret1DFunction(cistron, this.selectElement);
                 return (Func<T, int, TResult>)(object)impl;
                 TResult impl(float val, int dimension)
                 {
                     if (repeats)
                     {
-                        return function(val % dimension);
+                        return function!(val % dimension);
                     }
                     else
                     {
-                        return function((val * dimension) / patternLength);
+                        return function!((val * dimension) / patternLength);
                     }
                 }
             }
             else
+                throw new NotImplementedException(typeof(T).FullName);
 
 
         }
@@ -180,10 +182,11 @@ internal class FunctionSpecFactory
 
 
 
-            object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
+            object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron)!;
         }
 
     }
+}
 //internal class Distribution : FunctionSpecFactory
 //{
 //    public Distribution(ICistronInterpreter2<T> interpreter) : base( interpreter)

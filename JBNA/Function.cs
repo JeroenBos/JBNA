@@ -109,3 +109,62 @@ class RangelessFunctionSpec<T, TIntermediate, TResult> : IRangelessFunctionSpec<
         return new Func<T, T, T, TResult>(Interpret(cistron));
     }
 }
+
+// thoughts:
+//
+//abstract class ExplicitlyRangedFunction<T, TResult>
+//{
+//    public T Min { get; }
+//    public T Max { get; }
+//    abstract T Scale(T input); // or more like Map
+//    public Func<T, TResult> Interpret { get; }
+//}
+//class DeferredRangedFunction<T, TResult>
+//{
+//    public Func<T, Func<Func<T, T> /*scale/map function of intput*/, TResult>> Interpret { get; }
+//}
+//class SelfdescriptivelyRangedFunction<T, TResult>
+//{
+//    public Func<T, TResult> Interpret { get; }
+//}
+// they're all ranged. It's just that some ranges are default and not necessarily sensible.
+// where can ranges come from?
+// - up front by all the way from the Nature.
+// - encoded in the cistrons
+// - the more generic case, only known just becore the function is to be called.
+
+// in the first case the signature is going to be just T -> U
+// in the second case, the signature is also going to be just T -> U
+// in the third case, the signature is going to be (T -> T) -> T -> U
+//     and when you look at it like that it might as well be that the (T -> T) part is the responsibility of the caller. 
+//     That would simplify the story here significantly
+
+
+
+public static class FunctionalCistronExtensions
+{
+    class MappedInterpreter<T, TIntermediate, TResult> : ICistronInterpreter<Func<T, TResult>>
+    {
+        private readonly ICistronInterpreter<Func<T, TIntermediate>> baseInterpreter;
+        private readonly Func<TIntermediate, TResult> map;
+
+        public MappedInterpreter(ICistronInterpreter<Func<T, TIntermediate>> interpreter, Func<TIntermediate, TResult> map)
+        {
+            this.baseInterpreter = interpreter ?? throw new ArgumentNullException(nameof(interpreter));
+            this.map = map ?? throw new ArgumentNullException(nameof(map));
+        }
+
+        public Func<T, TResult> Interpret(BitArrayReadOnlySegment cistron)
+        {
+            var baseFunction = baseInterpreter.Interpret(cistron);
+            return x => map(baseFunction(x));
+        }
+
+        ulong ICistronInterpreter.MinBitCount => baseInterpreter.MinBitCount;
+        ulong ICistronInterpreter.MaxBitCount => baseInterpreter.MaxBitCount;
+    }
+    public static ICistronInterpreter<Func<T, TResult>> Map<T, TIntermediate, TResult>(this ICistronInterpreter<Func<T, TIntermediate>> interpreter, Func<TIntermediate, TResult> map)
+    {
+        return new MappedInterpreter<T, TIntermediate, TResult>(interpreter, map);
+    }
+}
