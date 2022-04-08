@@ -41,7 +41,10 @@ public interface ICistronInterpreter
     // byte[] ReverseEngineer(TCodon startCodon, T? value, TCodon stopCodon);
 
 }
-public interface IMultiCistronMerger  // decides which is recessive, dominant, or merges
+/// <summary>
+/// Decides which is recessive, dominant, or merges.
+/// </summary>
+public interface IMultiCistronMerger  
 {
     bool CouldIgnoreInvalidCistrons => true;
     Func<object> Merge(Func<object> previous, Func<object> current);

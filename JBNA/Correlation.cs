@@ -37,27 +37,28 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
     }
     public ulong MinBitCount => 8;
     public ulong MaxBitCount => this.nature.MaxCistronLength;
+
     Func<int, bool[]> ICistronInterpreter<Func<int, bool[]>>.Interpret(BitArrayReadOnlySegment cistron)
     {
-        var generator = (Generator1D)this.Interpret(cistron);
+        var generator = (IGenerator1D)this.Interpret(cistron);
         return generator.CreateBooleans;
     }
     Func<int, byte[]> ICistronInterpreter<Func<int, byte[]>>.Interpret(BitArrayReadOnlySegment cistron)
     {
-        var generator = (Generator1D)this.Interpret(cistron);
+        var generator = (IGenerator1D)this.Interpret(cistron);
         return generator.CreateBytes;
     }
     Func<int, short[]> ICistronInterpreter<Func<int, short[]>>.Interpret(BitArrayReadOnlySegment cistron)
     {
-        var generator = (Generator1D)this.Interpret(cistron);
+        var generator = (IGenerator1D)this.Interpret(cistron);
         return generator.CreateShorts;
     }
     Func<int, Half[]> ICistronInterpreter<Func<int, Half[]>>.Interpret(BitArrayReadOnlySegment cistron)
     {
-        var generator = (Generator1D)this.Interpret(cistron);
+        var generator = (IGenerator1D)this.Interpret(cistron);
         return generator.CreateHalfs;
     }
-    private GeneratorBase Interpret(BitArrayReadOnlySegment cistron)
+    private Generator Interpret(BitArrayReadOnlySegment cistron)
     {
         // let's say the cistrons represent a list of chunks, each chunk consisting of
         // - an index where the pattern starts
@@ -97,7 +98,7 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
         var probabilityFunctionCistron = subcistrons[0];
         var patternCistron = subcistrons[1];
 
-        return new Generator1D(probabilityFunctionCistron, patternCistron, repeats: false);
+        return new Generator(this.nature, probabilityFunctionCistron, patternCistron, repeats: false);
     }
 
 
@@ -107,26 +108,30 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
     /// If the probability of the next point is also higher, then the pattern continues there.
     /// Otherwise, the pattern can start at the point again.
     /// </summary>
-    private class GeneratorBase
+    private class Generator : IGenerator1D //, IGenerator2D TODO
     {
         public BitArrayReadOnlySegment ProbabilityFunctionCistron { get; }
         public BitArrayReadOnlySegment PatternCistron { get; }
         public bool Repeats { get; }// as opposed to scales
+        public Nature Nature { get; }
 
         // function as caches for the interfaces
-        public object? Pattern { get; set; }
-        public object? ProbabilityFunction { get; set; }
+        public object? _probabilityFunction { get; set; }
+        public object? _pattern { get; set; }
 
-        public GeneratorBase(BitArrayReadOnlySegment probabilityFunctionSubCistron, BitArrayReadOnlySegment patternSubcistron, bool repeats = false)
-         {
-             this.PatternCistron = patternSubcistron;
-             this.ProbabilityFunctionCistron = probabilityFunctionSubCistron;
-             this.Repeats = repeats;
-         }
+        public Generator(Nature nature, BitArrayReadOnlySegment probabilityFunctionSubCistron, BitArrayReadOnlySegment patternSubcistron, bool repeats)
+        {
+            this.Nature = nature;
+            this.PatternCistron = patternSubcistron;
+            this.ProbabilityFunctionCistron = probabilityFunctionSubCistron;
+            this.Repeats = repeats;
+        }
     }
+
 
     interface IGenerator1D
     {
+        Nature Nature { get; }
         BitArrayReadOnlySegment ProbabilityFunctionCistron { get; }
         BitArrayReadOnlySegment PatternCistron { get; }
         bool Repeats { get; }
@@ -137,19 +142,20 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
         Half[] CreateHalfs(int length) => Create(length, s => s.BitsAsHalf());
 
 
-        // 
-        object _probabilityFunction { get; set; }
-        object _pattern { get; set; }
+        /// <summary>A backing field for the probability function.</summary>
+        object? _probabilityFunction { get; set; }
+        /// <summary>A backing field for the pattern function.</summary>
+        object? _pattern { get; set; }
 
-        Func<int, float> ProbabilityFunction
+        Func<int, bool> ProbabilityFunction
         {
             get
             {
                 if (_probabilityFunction == null)
                 {
-                    _probabilityFunction = ...;
+                    _probabilityFunction = (Func<short, bool>)this.Nature.FunctionFactory.Interpret1DFunction<bool>(this.ProbabilityFunctionCistron, @short => (@short & 255) > 127);
                 }
-                return (Func<int, float>)_probabilityFunction;
+                return (Func<int, bool>)_probabilityFunction;
             }
         }
         short[] Pattern
@@ -158,7 +164,7 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
             {
                 if (_pattern == null)
                 {
-                    _pattern = ...;
+                    _pattern = (Func<short, bool>)this.Nature.FunctionFactory.Interpret1DPattern<bool>(this.ProbabilityFunctionCistron, @short => (@short & 255) > 127);
                 }
                 return (short[])_pattern;
             }
@@ -185,7 +191,7 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
             var result = new TResult[length];
             for (int i = 0; i < length; i++)
             {
-                if (ProbabilityFunction(i) >= 0.5)
+                if (ProbabilityFunction((short)i))
                 {
                     if (startIndex != i - 1)
                     {
@@ -199,106 +205,106 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
             return result;
         }
     }
-    private record Generator1D : GeneratorBase
-    {
-        private readonly Func<int, float> probabilityFunction;
-        public Generator1D(BitArrayReadOnlySegment probabilityFunctionCistron, BitArrayReadOnlySegment pattern, bool repeats) : base(probabilityFunctionCistron, pattern, repeats)
-        {
-            probabilityFunction = probabilityFunctionCistron.ToFunction();
-        }
+    //private record Generator1D : GeneratorBase
+    //{
+    //    private readonly Func<int, float> probabilityFunction;
+    //    public Generator1D(BitArrayReadOnlySegment probabilityFunctionCistron, BitArrayReadOnlySegment pattern, bool repeats) : base(probabilityFunctionCistron, pattern, repeats)
+    //    {
+    //        probabilityFunction = probabilityFunctionCistron.ToFunction();
+    //    }
 
-        private byte getPattern(int x, int length)
-        {
-            if (repeats)
-            {
-                return pattern[x % pattern.Length];
-            }
-            else
-            {
-                return pattern[(x * pattern.Length) / length];
-            }
-        }
+    //    private byte getPattern(int x, int length)
+    //    {
+    //        if (repeats)
+    //        {
+    //            return pattern[x % pattern.Length];
+    //        }
+    //        else
+    //        {
+    //            return pattern[(x * pattern.Length) / length];
+    //        }
+    //    }
 
 
-        public bool[] CreateBooleans(int length)
-        {
-            // this is not allowed to throw GenomeInviableExceptions
-            return Create<bool>(length, i => (i & 255) > 127);
-        }
-        public byte[] CreateBytes(int length)
-        {
-            // this is not allowed to throw GenomeInviableExceptions
-            return Create<byte>(length, i => (byte)(i & 255)); 
-        }
-        public short[] CreateShorts(int length)
-        {
-            // this is not allowed to throw GenomeInviableExceptions
-            return Create<short>(length, i => i);
-        }
-        public Half[] CreateHalfs(int length)
-        {
-            // this is not allowed to throw GenomeInviableExceptions
-            return Create<Half>(length, i => i.BitsAsHalf());
-        }
-        protected override Array Create<TResult>(int[] lengths, Func<short, TResult> selectResult) => Create(lengths.Single(), selectResult);
-        public override Array CreateBooleans(int[] lengths) => CreateBooleans(lengths.Single());
-        public override Array CreateBytes(int[] lengths) => CreateBytes(lengths.Single());
-        public override Array CreateShorts(int[] lengths) => CreateShorts(lengths.Single());
-        public override Array CreateHalfs(int[] lengths) => CreateHalfs(lengths.Single());
-    }
-    private class Generator2D
-    {
-        private readonly Func<int, int, float> probabilityFunction;
-        private readonly ArraySegment<byte> encodedPattern;
-        private readonly bool repeats; // as opposed to scales
+    //    public bool[] CreateBooleans(int length)
+    //    {
+    //        // this is not allowed to throw GenomeInviableExceptions
+    //        return Create<bool>(length, i => (i & 255) > 127);
+    //    }
+    //    public byte[] CreateBytes(int length)
+    //    {
+    //        // this is not allowed to throw GenomeInviableExceptions
+    //        return Create<byte>(length, i => (byte)(i & 255)); 
+    //    }
+    //    public short[] CreateShorts(int length)
+    //    {
+    //        // this is not allowed to throw GenomeInviableExceptions
+    //        return Create<short>(length, i => i);
+    //    }
+    //    public Half[] CreateHalfs(int length)
+    //    {
+    //        // this is not allowed to throw GenomeInviableExceptions
+    //        return Create<Half>(length, i => i.BitsAsHalf());
+    //    }
+    //    protected override Array Create<TResult>(int[] lengths, Func<short, TResult> selectResult) => Create(lengths.Single(), selectResult);
+    //    public override Array CreateBooleans(int[] lengths) => CreateBooleans(lengths.Single());
+    //    public override Array CreateBytes(int[] lengths) => CreateBytes(lengths.Single());
+    //    public override Array CreateShorts(int[] lengths) => CreateShorts(lengths.Single());
+    //    public override Array CreateHalfs(int[] lengths) => CreateHalfs(lengths.Single());
+    //}
+    //private class Generator2D
+    //{
+    //    private readonly Func<int, int, float> probabilityFunction;
+    //    private readonly ArraySegment<byte> encodedPattern;
+    //    private readonly bool repeats; // as opposed to scales
 
-        public Generator2D(
-            Func<int, int, /*the dimensions*/float> probabilityFunction,
-            ArraySegment<byte> encodedPattern,
-            bool repeats = false)
-        {
-            this.encodedPattern = encodedPattern;
-            this.probabilityFunction = probabilityFunction;
-            this.repeats = repeats;
-        }
-        public static Generator2D Create(Func<int, int, /*the dimensions*/float> probabilityFunction, ArraySegment<byte> encodedPattern) => new Generator2D(probabilityFunction, encodedPattern);
+    //    public Generator2D(
+    //        Func<int, int, /*the dimensions*/float> probabilityFunction,
+    //        ArraySegment<byte> encodedPattern,
+    //        bool repeats = false)
+    //    {
+    //        this.encodedPattern = encodedPattern;
+    //        this.probabilityFunction = probabilityFunction;
+    //        this.repeats = repeats;
+    //    }
+    //    public static Generator2D Create(Func<int, int, /*the dimensions*/float> probabilityFunction, ArraySegment<byte> encodedPattern) => new Generator2D(probabilityFunction, encodedPattern);
 
-        private TResult[,] Create<TResult>(int width, int height, Func<byte, TResult> selectResult)
-        {
-            var boundingRectangles = Floodfill.DivideMapInAreas(this.isArea, width, height);
-            var result = new TResult[width, height];
-            foreach (var boundingRectangle in boundingRectangles)
-            {
-                Assert(!this.repeats); // else notimplemented
-                var bytesToResult = new TwoDimensionalScalingFunction<TResult>(this.encodedPattern, boundingRectangle.Width, boundingRectangle.Height, selectResult);
-                for (int x = 0; x < boundingRectangle.Width; x++)
-                {
-                    for (int y = 0; y < boundingRectangle.Height; y++)
-                    {
-                        Point p = boundingRectangle.TopLeft + new Point(x, y);
-                        if (this.isArea(p))
-                        {
-                            result[p.X, p.Y] = bytesToResult.GetValue(new Point(x, y), boundingRectangle.Width, boundingRectangle.Height);
-                        }
-                    }
-                }
-            }
+    //    private TResult[,] Create<TResult>(int width, int height, Func<byte, TResult> selectResult)
+    //    {
+    //        var boundingRectangles = Floodfill.DivideMapInAreas(this.isArea, width, height);
+    //        var result = new TResult[width, height];
+    //        foreach (var boundingRectangle in boundingRectangles)
+    //        {
+    //            Assert(!this.repeats); // else notimplemented
+    //            var bytesToResult = new TwoDimensionalScalingFunction<TResult>(this.encodedPattern, boundingRectangle.Width, boundingRectangle.Height, selectResult);
+    //            for (int x = 0; x < boundingRectangle.Width; x++)
+    //            {
+    //                for (int y = 0; y < boundingRectangle.Height; y++)
+    //                {
+    //                    Point p = boundingRectangle.TopLeft + new Point(x, y);
+    //                    if (this.isArea(p))
+    //                    {
+    //                        result[p.X, p.Y] = bytesToResult.GetValue(new Point(x, y), boundingRectangle.Width, boundingRectangle.Height);
+    //                    }
+    //                }
+    //            }
+    //        }
 
-            return result;
-        }
-        private bool isArea(Point p)
-        {
-            return probabilityFunction(p.X, p.Y) >= 0.5;
-        }
-        public bool[,] CreateBooleans(int width, int height)
-        {
-            // this is not allowed to throw GenomeInviableExceptions
-            return Create<bool>(width, height, b => b > 127);
-        }
-        public byte[,] CreateBytes(int width, int height)
-        {
-            // this is not allowed to throw GenomeInviableExceptions
-            return Create<byte>(width, height, b => b);
-        }
-    }
+    //        return result;
+    //    }
+    //    private bool isArea(Point p)
+    //    {
+    //        return probabilityFunction(p.X, p.Y) >= 0.5;
+    //    }
+    //    public bool[,] CreateBooleans(int width, int height)
+    //    {
+    //        // this is not allowed to throw GenomeInviableExceptions
+    //        return Create<bool>(width, height, b => b > 127);
+    //    }
+    //    public byte[,] CreateBytes(int width, int height)
+    //    {
+    //        // this is not allowed to throw GenomeInviableExceptions
+    //        return Create<byte>(width, height, b => b);
+    //    }
+    //}
 }

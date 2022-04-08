@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace JBNA
 {
     /// <summary>
-    /// Splits a Cistron up into multiple cistrons, assuming they're separated by Nature.StopCodon. 
+    /// Splits a Cistron up into multiple cistrons, assuming they're separated by Nature.StopCodon.
     /// These subcistrons don't have start codons (keys) to signify them; they are ordered.
     /// </summary>
     public class SubCistronInterpreter : ICistronInterpreter<List<BitArrayReadOnlySegment>>

@@ -150,10 +150,15 @@ public class Nature : ReadOnlyStartCodonCollection<CistronSpec>
 {
     public ulong MaxCistronLength = ushort.MaxValue; // TODO: implement. is not used everywhere yet
     public UlongValue SubCistronStopCodon => new(0b1000_0001, 8);
+
+    public ICistronInterpreter Pattern1DInterpreter = new CistronInterpreter();
+    public int PatternLengthBitCount => 8;
+
+    public FunctionSpecFactory FunctionFactory { get; }
     public Nature(IReadOnlyCollection<CistronSpec> objects, Random random)
         : base(objects, random)
     {
-
+        this.FunctionFactory = new FunctionSpecFactory(this);
     }
 }
 
