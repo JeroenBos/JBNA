@@ -1,5 +1,4 @@
 using JBSnorro.Collections;
-
 namespace JBNA;
 
 public delegate TResult RangelessDelegate<T, TResult>(T input, T min, T max);
@@ -138,6 +137,8 @@ class RangelessFunctionSpec<T, TIntermediate, TResult> : IRangelessFunctionSpec<
 // in the third case, the signature is going to be (T -> T) -> T -> U
 //     and when you look at it like that it might as well be that the (T -> T) part is the responsibility of the caller. 
 //     That would simplify the story here significantly
+//
+// on second 
 
 
 
@@ -163,8 +164,36 @@ public static class FunctionalCistronExtensions
         ulong ICistronInterpreter.MinBitCount => baseInterpreter.MinBitCount;
         ulong ICistronInterpreter.MaxBitCount => baseInterpreter.MaxBitCount;
     }
+    /// <summary>
+    /// Composition in the sense of g º f.
+    /// </summary>
+    class ComposedInterpreter<T, TIntermediate, TResult> : ICistronInterpreter<Func<T, TResult>>
+    {
+        private readonly ICistronInterpreter<Func<TIntermediate, TResult>> baseInterpreter;
+        private readonly Func<T, TIntermediate> innerFunction;
+
+        public ComposedInterpreter(ICistronInterpreter<Func<TIntermediate, TResult>> interpreter, Func<T, TIntermediate> innerFunction)
+        {
+            this.baseInterpreter = interpreter ?? throw new ArgumentNullException(nameof(interpreter));
+            this.innerFunction  = innerFunction ?? throw new ArgumentNullException(nameof(innerFunction));
+        }
+
+        public Func<T, TResult> Interpret(BitArrayReadOnlySegment cistron)
+        {
+            var baseFunction = baseInterpreter.Interpret(cistron);
+            return x => baseFunction(innerFunction(x));
+        }
+
+        ulong ICistronInterpreter.MinBitCount => baseInterpreter.MinBitCount;
+        ulong ICistronInterpreter.MaxBitCount => baseInterpreter.MaxBitCount;
+    }
     public static ICistronInterpreter<Func<T, TResult>> Map<T, TIntermediate, TResult>(this ICistronInterpreter<Func<T, TIntermediate>> interpreter, Func<TIntermediate, TResult> map)
     {
         return new MappedInterpreter<T, TIntermediate, TResult>(interpreter, map);
     }
+    public static ICistronInterpreter<Func<T, TResult>> Compose<T, TIntermediate, TResult>(this ICistronInterpreter<Func<TIntermediate, TResult>> interpreter, Func<T, TIntermediate> innerFunction)
+    {
+        return new ComposedInterpreter<T, TIntermediate, TResult>(interpreter, innerFunction);
+    }
+
 }

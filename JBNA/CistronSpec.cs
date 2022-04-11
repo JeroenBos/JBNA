@@ -4,6 +4,9 @@ using System.Collections.Immutable;
 
 namespace JBNA;
 
+/// <summary>
+/// This is the class instances of which consumers are supposed to provide.
+/// </summary>
 public class CistronSpec
 {
     static CistronSpec()

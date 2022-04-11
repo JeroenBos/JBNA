@@ -79,12 +79,24 @@ public static class Extensions
     /// <exception cref="NotImplementedException"></exception>
     public static TCodon[] GenerateUniqueRandomNumbers(this Random random, int drawCount, int max)
     {
+        var result = new List<TCodon>(capacity: drawCount);
+
+        // int m = max;
+        // for (int i = 0; i < drawCount; i++)
+        // {
+        //     var next = (ulong)random.Next(0, m);
+        //     var offset = (ulong)result.Count(t => t <= next);
+        //     result.Add(next + offset);
+        //     m--;
+        // }   this approach is very flawed
+        
+
         var list = new int[max];
         for (int i = 0; i < max; i++)
             list[i] = i;
         random.Shuffle(list);
 
-        return list.Take(drawCount).Select(i => (byte)i).ToArray();
+        return list.Take(drawCount).Select(i => (ulong)i).ToArray();
     }
     public static float Normal(this Random random, float average, float standardDevation)
     {
@@ -104,7 +116,25 @@ public static class Extensions
         }
         return result;
     }
+    public static ulong[] Many(this Random random, int count, ulong min, ulong max)
+    {
+        ulong[] result = new ulong[count];
+        for (int i = 0; i < count; i++)
+        {
+            checked
+            {
+                result[i] = (ulong)random.Next((int)min, (int)max);
+            }
+        }
+        return result;
+    }
     public static int[] ManySorted(this Random random, int count, int min, int max)
+    {
+        var result = random.Many(count, min, max);
+        Array.Sort(result);
+        return result;
+    }
+    public static ulong[] ManySorted(this Random random, int count, ulong min, ulong max)
     {
         var result = random.Many(count, min, max);
         Array.Sort(result);

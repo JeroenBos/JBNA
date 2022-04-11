@@ -36,7 +36,7 @@ public interface ICistronInterpreter
     object Interpret(BitArrayReadOnlySegment cistron) => ((ICistronInterpreter<object>)this).Interpret(cistron); // only works for reference types
     ulong MinBitCount { get; }
     ulong MaxBitCount { get; }
-    ReadOnlyCollection<byte>? InitialEncodedValue => default;
+    BitArrayReadOnlySegment? InitialEncodedValue => default;
     bool ImplicitStopCodonAllowed => MaxBitCount > int.MaxValue / 2;
     // byte[] ReverseEngineer(TCodon startCodon, T? value, TCodon stopCodon);
 

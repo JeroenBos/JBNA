@@ -148,7 +148,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
 
 public class Nature : ReadOnlyStartCodonCollection<CistronSpec>
 {
-    public ulong MaxCistronLength = ushort.MaxValue; // TODO: implement. is not used everywhere yet
+    public ulong MaxCistronLength => ushort.MaxValue; // TODO: implement. is not used everywhere yet
     public UlongValue SubCistronStopCodon => new(0b1000_0001, 8);
 
     public ICistronInterpreter Pattern1DInterpreter = new CistronInterpreter();

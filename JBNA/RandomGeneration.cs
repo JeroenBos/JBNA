@@ -1,5 +1,6 @@
 ﻿using JBSnorro;
-using System;
+using JBSnorro.Collections;
+using BitArray = JBSnorro.Collections.BitArray;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -11,7 +12,7 @@ namespace JBNA
 {
     internal class RandomGeneration
     {
-        public const int MaxByteCountForAnything = 10000;
+        public const ulong MaxByteCountForAnything = 10000;
         public static Nature CreateRandomHaploidNature(IReadOnlyList<CistronSpec> specs, Random random, bool add_defaults = true)
         {
             // Add defaults
@@ -107,18 +108,19 @@ namespace JBNA
             if (!nature.ReverseObjects.TryGetValue(spec, out TCodon startCodon))
                 throw new Exception($"No start codon assigned to '{spec.Allele}'");
 
-
-            var initialEncoding = spec.Interpreter.InitialEncodedValue;
+            BitArrayReadOnlySegment? initialEncoding = spec.Interpreter.InitialEncodedValue;
             byte[] encoding;
             if (initialEncoding != null)
             {
+                initialEncoding.IndexOf
+                
                 encoding = new byte[1 + initialEncoding.Count + 1];
                 initialEncoding.CopyTo(encoding, 1);
             }
             else
             {
-                int lengthRange = Math.Min(spec.Interpreter.MaxByteCount - spec.Interpreter.MinByteCount, MaxByteCountForAnything);
-                int cistronLength = spec.Interpreter.MinByteCount + random.Next(lengthRange);
+                ulong lengthRange = Math.Min(spec.Interpreter.MaxBitCount - spec.Interpreter.MinBitCount, MaxByteCountForAnything);
+                int cistronLength = checked((int)spec.Interpreter.MinBitCount + random.Next((int)lengthRange));
                 encoding = new byte[1 + cistronLength + 1];
                 for (int i = 1; i < encoding.Length - 1; i++)
                 {

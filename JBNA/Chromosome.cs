@@ -8,7 +8,7 @@ namespace JBNA;
 
 public sealed class Chromosome : IHomologousSet<Chromosome>
 {
-    internal int Length => this.data.Length;
+    internal ulong Length => this.data.Length;
     internal readonly Nature nature;
     private readonly BitArray data;
     private bool frozen = false;
@@ -44,7 +44,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
             {
                 if (!cistronSpec.Interpreter.ImplicitStopCodonAllowed)
                     throw new GenomeInviableException("Implicit stop codon not allowed");
-                if (range.GetOffsetAndLength(this.data.Length).Length < cistronSpec.Interpreter.MinByteCount)
+                if (this.data.Length < cistronSpec.Interpreter.MinBitCount)
                     throw new GenomeInviableException("Implicit stop codon sequence too short");
             }
             if (cistronSpec.Merger?.CouldIgnoreInvalidCistrons != true)
@@ -62,10 +62,10 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 
             static void CheckLength(BitArray data, Range range, ICistronInterpreter interpreter)
             {
-                int cistronLength = range.GetOffsetAndLength(data.Length).Length;
-                if (cistronLength < interpreter.MinByteCount)
+                ulong cistronLength = data.Length;
+                if (cistronLength < interpreter.MinBitCount)
                     throw new GenomeInviableException("Cistron too short");
-                if (cistronLength > interpreter.MaxByteCount)
+                if (cistronLength > interpreter.MaxBitCount)
                     throw new GenomeInviableException("Cistron too long");
             }
         }
@@ -92,12 +92,12 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         Chromosome Crossover()
         {
             int crossoverCount = GetCrossoverCount(interpret, random); // number in [0, ~3]
-            var splitIndices = random.ManySorted(crossoverCount, 0, Math.Min(mate.Length, this.Length));
+            var splitIndices = random.ManySorted(crossoverCount, 0, checked((int)Math.Min(mate.Length, this.Length)));
             int startSide = random.Next(2); // random start side
             bool endsOnThisSide = (startSide == 0) == ((crossoverCount % 2) == 0);
             var newChromosomeData = new BitArray(length: endsOnThisSide ? this.Length : mate.Length);
             int side = startSide;
-            foreach (var range in splitIndices.Append(newChromosomeData.Length).Windowed2(0))
+            foreach (var range in splitIndices.Append(checked((int)newChromosomeData.Length)).Windowed2(0))
             {
                 var source = side == 0 ? this : mate;
                 source.CopyTo(newChromosomeData, range.First, range.Second - range.First, range.First);
@@ -144,32 +144,32 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         float mutationRate = GetMutationRate(interpret);
         float mutationRateStdDev = GetMutationRateStdDev(interpret);
 
-        int[] mutationBitIndices = randomlySelectBitIndices(mutationRate, mutationRateStdDev, random);
+        ulong[] mutationBitIndices = randomlySelectBitIndices(mutationRate, mutationRateStdDev, random);
         this.Mutate(mutationBitIndices);
 
         this.ResizeMutate(interpret, random);
     }
-    private void Mutate(int[] mutationBitIndices)
+    private void Mutate(ulong[] mutationBitIndices)
     {
         Assert(!this.frozen, "Can't mutate frozen chromosome");
-        Assert(mutationBitIndices.All(b => b < this.data.Length * 8));
+        Assert(mutationBitIndices.All(b => (ulong)b < this.data.Length));
 
         foreach (var i in mutationBitIndices)
             Mutate(i);
 
-        void Mutate(int mutationBitIndex)
+        void Mutate(ulong mutationBitIndex)
         {
             this.data[mutationBitIndex] = !this.data[mutationBitIndex];
         }
     }
 
-    private int[] randomlySelectBitIndices(float rate, float rateStdDev, Random random)
+    private ulong[] randomlySelectBitIndices(float rate, float rateStdDev, Random random)
     {
         float mutationCountMu = rate * this.Length;
         float mutationCountSi = rateStdDev * this.Length;
         int mutationCount = (int)random.Normal(mutationCountMu, mutationCountSi);
 
-        int[] mutationIndices = random.ManySorted(mutationCount, 0, 8 * this.Length);
+        ulong[] mutationIndices = random.ManySorted(mutationCount, 0, this.Length);
         return mutationIndices;
     }
     private void ResizeMutate(Func<Allele, object?> interpret, Random random)
@@ -178,7 +178,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 
         float insertionRate = GetBitInsertionRate(interpret);
         // for simplicity let's not have a separate std dev here (yet)
-        int[] insertionBitIndices = randomlySelectBitIndices(insertionRate, insertionRate, random);
+        ulong[] insertionBitIndices = randomlySelectBitIndices(insertionRate, insertionRate, random);
         List<bool> insertionBits = insertionBitIndices.Select(_ => random.Next(2) == 0).ToList();
 
         this.InsertBits(insertionBitIndices, insertionBits);
@@ -186,16 +186,16 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 
         float removalRate = GetBitInsertionRate(interpret);
         // for simplicity let's not have a separate std dev here (yet)
-        int[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, random);
+        ulong[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, random);
 
         this.RemoveBits(insertionBitIndices);
     }
-    private void RemoveBits(int[] bitIndices)
+    private void RemoveBits(ulong[] bitIndices)
     {
         if (bitIndices.Length != 0)
             throw new NotImplementedException();
     }
-    private void InsertBits(int[] bitIndices, IList<bool> bits)
+    private void InsertBits(ulong[] bitIndices, IList<bool> bits)
     {
         Assert(bitIndices.Length == bits.Count);
 

@@ -6,7 +6,8 @@ using T = System.Func<float, float>;
 
 namespace JBNA;
 
-internal class FunctionSpecFactory
+
+public class FunctionSpecFactory
 {
     public Nature Nature { get; }
     public FunctionSpecFactory(Nature nature)
@@ -18,104 +19,70 @@ internal class FunctionSpecFactory
     /// </summary>
     /// <param name="cistron">The cistron is expected to start with an indeterminate few bits describing the 'type of function'.</param>
     /// <param name="selectResult">A function that interprets bits. </param>
-    public Delegate Interpret1DFunction<TResult>(BitArrayReadOnlySegment cistron, Func<short, TResult> selectElement)
+    public Func<int, short> Interpret1DFunction(BitArrayReadOnlySegment cistron)
     {
-        // is this type not just an interpreter<Delegate>?
+        // the implementation of this should just be reading a few bits
+        // + a switch statement over the various implemented function types.
     }
     /// <summary>
-    /// Converts the cistron into a pattern.
+    /// Converts the cistron into a pattern function.
     /// </summary>
     /// <param name="cistron">
-    /// The cistron is expected to start with an indeterminate few bits describing the 'type of pattern'.
+    /// The cistron is expected to start with a caller-responsible number of bits describing the 'type of pattern'.
     /// Also configuration, e.g. whether the pattern repeats or is stretched to a particular size, could be at the start of the cistron.
     /// </param>
-    /// <param name="selectResult">A function that interprets bits. </param>
-    /// <returns>a function representing the pattern</returns>
-    public Func<T, int, TResult> Interpret1DPattern<T, TResult>(BitArrayReadOnlySegment cistron, Func<short, TResult> selectElement)
+    /// <returns>a function that gets the value of the pattern given the position and length of the one dimension. </returns>
+    public Func<int, int, short> Interpret1DPattern(BitArrayReadOnlySegment cistron)
     {
-        Contract.Assert<NotImplementedException>(typeof(T) == typeof(int) || typeof(T) == typeof(float));
-
-        var interpreter = new Pattern1DInterpreter<T, TResult>(Nature).Interpret(cistron);
-
-        var function = (Func<int, TResult>)Interpret1DFunction(cistron, selectElement);
-        int patternLength;
-        bool repeats;
-        // dimension is the dimension of the field in which the pattern plays out, it's not the size of the pattern itself (that's encoded in the cistron).
-        TResult impl(T val, int dimension)
-        {
-            if (repeats)
-            {
-                return function(val % dimension);
-            }
-            else
-            {
-                return function((val * dimension) / patternLength);
-            }
-        }
         // in essence a pattern is just a particular function.
-        // unsure about how the type T plays a role, if any. and interpolation? Could be done at the short level, maybe should be done at the TResult level, but that then requires another parameter
+        // Q: unsure about how the type T plays a role, if any. and interpolation? Could be done at the short level, maybe should be done at the TResult level, but that then requires another parameter
+        // A: we solved that by simply returning the short. Caller is allowed to map and compose as pleased.
+
+        ICistronInterpreter<Func<int, int, short>> interpreter = new Pattern1DInterpreter(Nature);
+        var patternFunction = interpreter.Interpret(cistron);
+        return patternFunction;
     }
-    class Pattern1DInterpreter<T, TResult> : ICistronInterpreter<Func<T, int, TResult>>
+    class Pattern1DInterpreter : ICistronInterpreter<Func<int, int, short>>, ICistronInterpreter<Func<float, float, short>>
     {
         public Nature Nature { get; }
-        private Func<short, TResult> selectElement;
-        public Pattern1DInterpreter(Nature nature, Func<short, TResult> selectElement)
+        public Pattern1DInterpreter(Nature nature)
         {
-            this.Nature=nature;
-            this.selectElement=selectElement;
+            this.Nature = nature;
         }
         public ulong MinBitCount => 1UL + (ulong)Nature.PatternLengthBitCount;
-        public ulong MaxBitCount => throw new NotImplementedException();
+        public ulong MaxBitCount => Nature.MaxCistronLength;
 
-        public Func<T, int, TResult> Interpret(BitArrayReadOnlySegment cistron)
+        Func<int /* position */, int /* dimension*/, short> ICistronInterpreter<Func<int, int, short>>.Interpret(BitArrayReadOnlySegment cistron)
         {
             var reader = cistron.ToBitReader();
             bool repeats = reader.ReadBit();
             int patternLength = reader.ReadInt32(bitCount: Nature.PatternLengthBitCount);
 
-
-
-            if (typeof(T) == typeof(int))
+            var function = Nature.FunctionFactory.Interpret1DFunction(cistron);
+            return impl;
+            short impl(int val, int dimension)
             {
-                var function = (Func<int, TResult>)Nature.FunctionFactory.Interpret1DFunction(cistron, this.selectElement);
-                return (Func<T, int, TResult>)(object)impl;
-                TResult impl(int val, int dimension)
+                if (repeats)
                 {
-                    if (repeats)
-                    {
-                        return function!(val % dimension);
-                    }
-                    else
-                    {
-                        return function!((val * dimension) / patternLength);
-                    }
+                    return function!(val % dimension);
+                }
+                else
+                {
+                    return function!((val * dimension) / patternLength);
                 }
             }
-            else if (typeof(T) == typeof(float))
-            {
-                var function = (Func<float, TResult>)Nature.FunctionFactory.Interpret1DFunction(cistron, this.selectElement);
-                return (Func<T, int, TResult>)(object)impl;
-                TResult impl(float val, int dimension)
-                {
-                    if (repeats)
-                    {
-                        return function!(val % dimension);
-                    }
-                    else
-                    {
-                        return function!((val * dimension) / patternLength);
-                    }
-                }
-            }
-            else
-                throw new NotImplementedException(typeof(T).FullName);
-
-
         }
+        Func<float, float, short> ICistronInterpreter<Func<float, float, short>>.Interpret(BitArrayReadOnlySegment cistron)
+        {
+            throw new NotImplementedException();
+        }
+
         public static ICistronInterpreter<T> CreateFourierFunction(float minDomain = -1, float maxDomain = 1)
         {
             return new FourierFunctionCistronInterpreter(minDomain, maxDomain);
         }
+
+        
 
         internal class FourierFunctionCistronInterpreter : ICistronInterpreter<T>
         {
