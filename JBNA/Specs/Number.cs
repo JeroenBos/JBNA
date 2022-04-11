@@ -1,4 +1,5 @@
 ﻿using JBSnorro.Collections;
+using static JBSnorro.Diagnostics.Contract;
 using System.Linq;
 
 namespace JBNA;

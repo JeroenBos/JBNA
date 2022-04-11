@@ -1,12 +1,14 @@
-﻿namespace JBNA;
+﻿using JBSnorro;
+using static JBSnorro.Diagnostics.Contract;
+
+namespace JBNA;
 
 internal class Evolution<P> where P : IHomologousSet<P>
 {
     private static readonly Random rng = new Random();
 
-    private ReadOnlyStartCodonCollection<CistronSpec> nature;
-    // private readonly IReadOnlyList<CistronSpec> specs => nature.;
-    private readonly Func<ReadOnlyStartCodonCollection<CistronSpec>, Random, Genome<P>> drawGenome;
+    private readonly Nature nature;
+    private readonly Func<Nature, Random, Genome<P>> drawGenome;
     private readonly Func<object?[], float> scoreFunction;
     private readonly Random random;
     private readonly int maxAttemptsUntilDrawGenomeIsInviable;
@@ -14,8 +16,8 @@ internal class Evolution<P> where P : IHomologousSet<P>
     private Genome<P>[] population;
     /// <param name="scoreFunction">There may be extra objects appended at the end of the first argument (default cistron values). </param>
     public Evolution(
-        ReadOnlyStartCodonCollection<CistronSpec> nature,
-        Func<ReadOnlyStartCodonCollection<CistronSpec>, Random, Genome<P>> drawGenome,
+        Nature nature,
+        Func<Nature, Random, Genome<P>> drawGenome,
         Func<object?[], float> scoreFunction,
         int populationSize,
         int maxAttemptsUntilDrawGenomeIsInviable = 100,

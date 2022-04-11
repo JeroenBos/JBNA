@@ -2,7 +2,9 @@
 using JBSnorro;
 using JBSnorro.Collections;
 using JBSnorro.Diagnostics;
+using JBSnorro.Extensions;
 using System;
+using static JBSnorro.Diagnostics.Contract;
 
 namespace JBNA;
 

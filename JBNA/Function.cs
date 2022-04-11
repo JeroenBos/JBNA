@@ -165,7 +165,7 @@ public static class FunctionalCistronExtensions
         ulong ICistronInterpreter.MaxBitCount => baseInterpreter.MaxBitCount;
     }
     /// <summary>
-    /// Composition in the sense of g º f.
+    /// Composition in the sense of g ï¿½ f.
     /// </summary>
     class ComposedInterpreter<T, TIntermediate, TResult> : ICistronInterpreter<Func<T, TResult>>
     {

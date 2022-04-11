@@ -23,8 +23,8 @@ namespace JBNA
                 specs = specs.Concat(defaultCistronSpecs).ToArray();
             }
 
-            int minByteCount = specs.Aggregate(0, (s, order) => s + order.Interpreter.MinByteCount);
-            int maxByteCount = specs.Aggregate(0, (s, order) => s + order.Interpreter.MaxByteCount);
+            // int minByteCount = specs.Aggregate(0, (s, order) => s + order.Interpreter.MinByteCount);
+            // int maxByteCount = specs.Aggregate(0, (s, order) => s + order.Interpreter.MaxByteCount);
 
             int chromosomeCount = 1 + specs.Count / 20;
 
@@ -41,27 +41,25 @@ namespace JBNA
         {
             var genome = new HaploidalGenome(nature, out List<Chromosome> chromosomes);
 
-            var sequencesToInsert = new List<byte[]>();
+            var sequencesToInsert = new List<BitArrayReadOnlySegment>();
             foreach (var spec in nature.Objects.Values)
             {
-
                 var initialEncoding = GetInitialEncoding(spec, nature, random);
                 sequencesToInsert.Add(initialEncoding);
             }
 
-            int nonJunkLength = sequencesToInsert.Aggregate(0, (s, array) => s + array.Length);
-            int totalLength;
-            int junkLength;
+            ulong nonJunkLength = sequencesToInsert.Aggregate(0UL, (s, array) => s + array.Length);
+            ulong totalLength;
+            long junkLength;
             if (nature.CistronsByAllele.TryGetValue(Allele.JunkRatio, out CistronSpec? junkJBNARatio))
             {
-                Assert(junkJBNARatio.Interpreter is ICistronInterpreter<float>);
-                var interpreter = ((ICistronInterpreter<float>)junkJBNARatio.Interpreter);
-                ReadOnlyCollection<byte>? encodedJunkRatio = interpreter.InitialEncodedValue;
+                var interpreter = (ICistronInterpreter<float>)junkJBNARatio.Interpreter;
+                var encodedJunkRatio = interpreter.InitialEncodedValue;
                 if (encodedJunkRatio != null)
                 {
                     float junkRatio = interpreter.Interpret(encodedJunkRatio);
-                    totalLength = Math.Max(nonJunkLength, (int)(nonJunkLength / (1 - junkRatio)));
-                    junkLength = totalLength - nonJunkLength;
+                    totalLength = Math.Max(nonJunkLength, (ulong)(nonJunkLength / (1 - junkRatio)));
+                    junkLength = (long)(totalLength - nonJunkLength);
                 }
                 else
                 {
@@ -76,12 +74,12 @@ namespace JBNA
             }
 
             // zip them into chromosomes
-            List<int> splitIndices = Enumerable.Range(0, sequencesToInsert.Count)
-                                   .Select(_ => random.Next(junkLength + 1))
-                                   .OrderBy(_ => _)
-                                   .Select((indexInChromosome, cistronIndex) => indexInChromosome + (cistronIndex == 0 ? 0 : sequencesToInsert[cistronIndex - 1].Length))
-                                   .Scan(0, (junkSkipCount, cumulativeIndexInChromosome) => junkSkipCount + cumulativeIndexInChromosome)
-                                   .ToList();
+            List<ulong> splitIndices = Enumerable.Range(0, sequencesToInsert.Count)
+                                               .Select(_ => (ulong)random.NextInt64(junkLength + 1))
+                                               .OrderBy(_ => _)
+                                               .Select((indexInChromosome, cistronIndex) => indexInChromosome + (cistronIndex == 0 ? 0UL : sequencesToInsert[cistronIndex - 1].Length))
+                                               .Scan(0, (junkSkipCount, cumulativeIndexInChromosome) => junkSkipCount + cumulativeIndexInChromosome)
+                                               .ToList();
 
 
             byte[] chromosome = new byte[totalLength];
@@ -93,7 +91,7 @@ namespace JBNA
             foreach (var (insertIndex, sequence) in Enumerable.Zip(splitIndices, sequencesToInsert))
             {
 #if DEBUG
-                for (int i = insertIndex; i < insertIndex + sequence.Length; i++)
+                for (ulong i = insertIndex; i < insertIndex + sequence.Length; i++)
                     if (bitArray[i])
                         throw new Exception();
                     else
@@ -103,34 +101,26 @@ namespace JBNA
             }
             return genome;
         }
-        private static byte[] GetInitialEncoding(CistronSpec spec, Nature nature, Random random)
+        private static BitArrayReadOnlySegment GetInitialEncoding(CistronSpec spec, Nature nature, Random random)
         {
             if (!nature.ReverseObjects.TryGetValue(spec, out TCodon startCodon))
                 throw new Exception($"No start codon assigned to '{spec.Allele}'");
 
             BitArrayReadOnlySegment? initialEncoding = spec.Interpreter.InitialEncodedValue;
-            byte[] encoding;
             if (initialEncoding != null)
             {
-                initialEncoding.IndexOf
-                
-                encoding = new byte[1 + initialEncoding.Count + 1];
-                initialEncoding.CopyTo(encoding, 1);
+                return initialEncoding.Wrap(startCodon, nature.StartCodonBitCount, nature.StopCodon, nature.StopCodonBitCount);
             }
             else
             {
-                ulong lengthRange = Math.Min(spec.Interpreter.MaxBitCount - spec.Interpreter.MinBitCount, MaxByteCountForAnything);
-                int cistronLength = checked((int)spec.Interpreter.MinBitCount + random.Next((int)lengthRange));
-                encoding = new byte[1 + cistronLength + 1];
-                for (int i = 1; i < encoding.Length - 1; i++)
-                {
-                    encoding[i] = (byte)random.Next(256);
-                }
+                var cistronMaxLength = (long)Math.Min(spec.Interpreter.MaxBitCount - spec.Interpreter.MinBitCount, MaxByteCountForAnything);
+                var cistronLength = spec.Interpreter.MinBitCount + (ulong)random.NextInt64(cistronMaxLength);
+                
+                var result = BitArray.InitializeRandom(cistronLength + (ulong)nature.StartCodonBitCount + (ulong)nature.StopCodonBitCount, random);
+                result.Set(startCodon, nature.StartCodonBitCount, 0);
+                result.Set(nature.StopCodon, checked((int)(cistronLength - (ulong)nature.StopCodonBitCount)), 0);
+                return result[Range.All];
             }
-
-            encoding[0] = startCodon;
-            encoding[encoding.Length - 1] = nature.StopCodon;
-            return encoding;
         }
     }
 

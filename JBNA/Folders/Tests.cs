@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Xunit;
+using static JBSnorro.Diagnostics.Contract;
 
 Console.WriteLine("Done");
 // new FloodFillTests().TestFloodfillF();

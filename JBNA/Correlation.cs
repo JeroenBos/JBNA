@@ -153,7 +153,7 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
             {
                 if (_probabilityFunction == null)
                 {
-                    _probabilityFunction = (Func<short, bool>)this.Nature.FunctionFactory.Interpret1DFunction<bool>(this.ProbabilityFunctionCistron, @short => (@short & 255) > 127);
+                    _probabilityFunction = this.Nature.FunctionFactory.Interpret1DFunction(this.ProbabilityFunctionCistron).Map(@short => (@short & 255) > 127);
                 }
                 return (Func<int, bool>)_probabilityFunction;
             }
@@ -164,7 +164,8 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
             {
                 if (_pattern == null)
                 {
-                    _pattern = (Func<short, bool>)this.Nature.FunctionFactory.Interpret1DPattern<bool>(this.ProbabilityFunctionCistron, @short => (@short & 255) > 127);
+                    Func<int, int, short> x = this.Nature.FunctionFactory.Interpret1DPattern(this.PatternCistron);
+                    _pattern = x;
                 }
                 return (short[])_pattern;
             }

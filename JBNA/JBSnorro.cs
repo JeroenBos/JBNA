@@ -1,17 +1,17 @@
-﻿# pragma warning disable CS0437
-global using static JBSnorro.Extensions;
-using System;
-using System.Collections;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Contracts;
-using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
+﻿//# pragma warning disable CS0437
+//global using static JBSnorro.Extensions;
+//using System;
+//using System.Collections;
+//using System.Diagnostics;
+//using System.Diagnostics.CodeAnalysis;
+//using System.Diagnostics.Contracts;
+//using System.Linq.Expressions;
+//using System.Runtime.CompilerServices;
 
-namespace JBSnorro;
+//namespace JBSnorro;
 
-public static class Extensions
-{
+//public static class Extensions
+//{
     //public static bool HasBit(this uint flags, int index)
     //{
     //    // Contract.Requires(0 <= index && index < 32);
@@ -62,203 +62,100 @@ public static class Extensions
     //        return compare(x, y);
     //    }
     //}
-    [DebuggerHidden]
-    public static void Assert(bool condition, [CallerArgumentExpression("condition")] string message = "")
-    {
-        if (!condition)
-        {
-            throw new Exception("AssertionError: " + message);
-        }
-    }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="drawCount"></param>
-    /// <param name="max"> Exlusive. </param>
-    /// <exception cref="NotImplementedException"></exception>
-    public static TCodon[] GenerateUniqueRandomNumbers(this Random random, int drawCount, int max)
-    {
-        var result = new List<TCodon>(capacity: drawCount);
 
-        // int m = max;
-        // for (int i = 0; i < drawCount; i++)
-        // {
-        //     var next = (ulong)random.Next(0, m);
-        //     var offset = (ulong)result.Count(t => t <= next);
-        //     result.Add(next + offset);
-        //     m--;
-        // }   this approach is very flawed
-        
+//    public static TResult DeferToUpcast<TResult>(this object obj, [CallerMemberName] string callerMemberName = "")
+//    {
+//        var type = obj.GetType();
+//        var propInfo = type.GetProperty(callerMemberName);
+//        if (propInfo == null)
+//        {
+//            propInfo = type.GetInterfaces().Select(i => i.GetProperty(callerMemberName)).FirstOrDefault(pi => pi != null);
+//            if (propInfo == null)
+//                throw new Exception($"Property '{callerMemberName}' not found");
+//        }
+//        var result = propInfo.GetValue(obj);
+//        return (TResult)result!;
+//    }
+//    public static TResult DeferToUpcast<TArg0, TResult>(this object obj, TArg0 arg0, [CallerMemberName] string callerMemberName = "")
+//    {
+//        var mi = obj.GetType().GetMethod(callerMemberName, new[] { typeof(TArg0) });
+//        var result = mi!.Invoke(obj, new object?[] { arg0 });
+//        return (TResult)result!;
+//    }
+//    public static TResult DeferToUpcast<TArg0, TArg1, TResult>(this object obj, TArg0 arg0, TArg1 arg1, [CallerMemberName] string callerMemberName = "")
+//    {
+//        var mi = obj.GetType().GetMethod(callerMemberName, new[] { typeof(TArg0), typeof(TArg1) });
+//        var result = mi!.Invoke(obj, new object?[] { arg0, arg1 });
+//        return (TResult)result!;
+//    }
 
-        var list = new int[max];
-        for (int i = 0; i < max; i++)
-            list[i] = i;
-        random.Shuffle(list);
+//    public static IEnumerable<byte> InsertBits(this IEnumerable<byte> bytes, int[] sortedBitIndices, bool[] values)
+//    {
+//        if (sortedBitIndices.Length == 0)
+//            return bytes;
 
-        return list.Take(drawCount).Select(i => (ulong)i).ToArray();
-    }
-    public static float Normal(this Random random, float average, float standardDevation)
-    {
-        // from https://stackoverflow.com/a/218600/308451
-        double u1 = 1.0 - random.NextDouble(); // uniform(0,1] random doubles
-        double u2 = 1.0 - random.NextDouble();
-        double randStdNormal = Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Sin(2.0 * Math.PI * u2); // random normal(0,1)
-        double result = average + standardDevation * randStdNormal; // random normal(mean,stdDev^2)
-        return (float)result;
-    }
-    public static int[] Many(this Random random, int count, int min, int max)
-    {
-        int[] result = new int[count];
-        for (int i = 0; i < count; i++)
-        {
-            result[i] = random.Next(min, max);
-        }
-        return result;
-    }
-    public static ulong[] Many(this Random random, int count, ulong min, ulong max)
-    {
-        ulong[] result = new ulong[count];
-        for (int i = 0; i < count; i++)
-        {
-            checked
-            {
-                result[i] = (ulong)random.Next((int)min, (int)max);
-            }
-        }
-        return result;
-    }
-    public static int[] ManySorted(this Random random, int count, int min, int max)
-    {
-        var result = random.Many(count, min, max);
-        Array.Sort(result);
-        return result;
-    }
-    public static ulong[] ManySorted(this Random random, int count, ulong min, ulong max)
-    {
-        var result = random.Many(count, min, max);
-        Array.Sort(result);
-        return result;
-    }
+//        const int nLength = 8;
+//        byte[] source = bytes as byte[] ?? bytes.ToArray();
+//        var newLength = source.Length + ((values.Length + (nLength - 1)) / nLength);
+//        byte[] dest = new byte[newLength];
+//        int shift = 0;
+//        foreach (var (startBitIndex, endBitIndex) in sortedBitIndices.Windowed2())
+//        {
+//            // bit will be inserted at endBitIndex
+//            int startByteIndex = (startBitIndex + (nLength - 1)) / nLength;
+//            int endByteIndex = (endBitIndex + (nLength - 1)) / nLength;
+//            if (shift % nLength == 0)
+//            {
+//                int length = endByteIndex - startByteIndex;
+//                Array.Copy(source, startByteIndex, dest, startByteIndex + (shift / nLength), length);
+//            }
+//            else
+//            {
+//                int i = startByteIndex;
+//                int previous = i == 0 ? 0 : (source[i - 1] >> PositiveRemainder(nLength - shift - 1, nLength));
+//                int next = source[i] << PositiveRemainder(shift, nLength);
+//                dest[i] = (byte)(previous | next);
 
-    public static void Shuffle<T>(this Random random, IList<T> list)
-    {
-        for (int n = list.Count - 1; n > 1; n--)
-        {
-            int k = random.Next(n + 1);
-            T temp = list[k];
-            list[k] = list[n];
-            list[n] = temp;
-        }
-    }
+//                for (i++; i < endByteIndex; i++)
+//                {
+//                    int b = (source[i - 1] >> PositiveRemainder(nLength - shift, nLength)) | (source[i] << PositiveRemainder(shift, nLength));
+//                    dest[i + (shift / nLength)] = (byte)b;
+//                }
+//                previous = source[i] >> PositiveRemainder(nLength - shift, nLength);
+//                int middle = 1 << PositiveRemainder(shift, nLength);
+//                next = source[i] << PositiveRemainder(shift + 1, nLength);
 
-    public static TResult DeferToUpcast<TResult>(this object obj, [CallerMemberName] string callerMemberName = "")
-    {
-        var type = obj.GetType();
-        var propInfo = type.GetProperty(callerMemberName);
-        if (propInfo == null)
-        {
-            propInfo = type.GetInterfaces().Select(i => i.GetProperty(callerMemberName)).FirstOrDefault(pi => pi != null);
-            if (propInfo == null)
-                throw new Exception($"Property '{callerMemberName}' not found");
-        }
-        var result = propInfo.GetValue(obj);
-        return (TResult)result!;
-    }
-    public static TResult DeferToUpcast<TArg0, TResult>(this object obj, TArg0 arg0, [CallerMemberName] string callerMemberName = "")
-    {
-        var mi = obj.GetType().GetMethod(callerMemberName, new[] { typeof(TArg0) });
-        var result = mi!.Invoke(obj, new object?[] { arg0 });
-        return (TResult)result!;
-    }
-    public static TResult DeferToUpcast<TArg0, TArg1, TResult>(this object obj, TArg0 arg0, TArg1 arg1, [CallerMemberName] string callerMemberName = "")
-    {
-        var mi = obj.GetType().GetMethod(callerMemberName, new[] { typeof(TArg0), typeof(TArg1) });
-        var result = mi!.Invoke(obj, new object?[] { arg0, arg1 });
-        return (TResult)result!;
-    }
-    public static float StandardDeviation(this IEnumerable<float> numbers, float? average = null)
-    {
-        float μ = average ?? numbers.Average();
+//                dest[i] = (byte)(previous | middle | next);
+//            }
 
-        int count = 0;
-        float sum = 0;
-        foreach (var number in numbers)
-        {
-            sum += (number - μ) * (number - μ);
-            count++;
-        }
-        if (count == 0)
-            return 0;
-        return (float)Math.Sqrt(sum / count);
-    }
+//            shift++;
+//        }
+//        return dest;
 
-    public static IEnumerable<byte> InsertBits(this IEnumerable<byte> bytes, int[] sortedBitIndices, bool[] values)
-    {
-        if (sortedBitIndices.Length == 0)
-            return bytes;
+//        // I want a remainder that returns the positive remainder
+//        static int PositiveRemainder(int dividend, int divisor)
+//        {
+//            if (divisor < 0)
+//                throw new NotImplementedException();
+//            int remainder = dividend % divisor;
+//            if (dividend >= 0)
+//                return remainder;
+//            var result = remainder + divisor;
+//            return result;
+//        }
+//    }
 
-        const int nLength = 8;
-        byte[] source = bytes as byte[] ?? bytes.ToArray();
-        var newLength = source.Length + ((values.Length + (nLength - 1)) / nLength);
-        byte[] dest = new byte[newLength];
-        int shift = 0;
-        foreach (var (startBitIndex, endBitIndex) in sortedBitIndices.Windowed2())
-        {
-            // bit will be inserted at endBitIndex
-            int startByteIndex = (startBitIndex + (nLength - 1)) / nLength;
-            int endByteIndex = (endBitIndex + (nLength - 1)) / nLength;
-            if (shift % nLength == 0)
-            {
-                int length = endByteIndex - startByteIndex;
-                Array.Copy(source, startByteIndex, dest, startByteIndex + (shift / nLength), length);
-            }
-            else
-            {
-                int i = startByteIndex;
-                int previous = i == 0 ? 0 : (source[i - 1] >> PositiveRemainder(nLength - shift - 1, nLength));
-                int next = source[i] << PositiveRemainder(shift, nLength);
-                dest[i] = (byte)(previous | next);
+//    public static ArraySegment<T> AsArraySegment<T>(this IReadOnlyList<T> list)
+//    {
+//        if (list is ArraySegment<T> arraySegment)
+//            return arraySegment;
 
-                for (i++; i < endByteIndex; i++)
-                {
-                    int b = (source[i - 1] >> PositiveRemainder(nLength - shift, nLength)) | (source[i] << PositiveRemainder(shift, nLength));
-                    dest[i + (shift / nLength)] = (byte)b;
-                }
-                previous = source[i] >> PositiveRemainder(nLength - shift, nLength);
-                int middle = 1 << PositiveRemainder(shift, nLength);
-                next = source[i] << PositiveRemainder(shift + 1, nLength);
-
-                dest[i] = (byte)(previous | middle | next);
-            }
-
-            shift++;
-        }
-        return dest;
-
-        // I want a remainder that returns the positive remainder
-        static int PositiveRemainder(int dividend, int divisor)
-        {
-            if (divisor < 0)
-                throw new NotImplementedException();
-            int remainder = dividend % divisor;
-            if (dividend >= 0)
-                return remainder;
-            var result = remainder + divisor;
-            return result;
-        }
-    }
-
-    public static ArraySegment<T> AsArraySegment<T>(this IReadOnlyList<T> list)
-    {
-        if (list is ArraySegment<T> arraySegment)
-            return arraySegment;
-
-        throw new NotImplementedException("AsArraySegment");
-    }
-    public static ArraySegment<T> SelectSegment<T>(this T[] array, Range range)
-    {
-        var (offset, length) = range.GetOffsetAndLength(array.Length);
-        return new ArraySegment<T>(array, offset, length);
-    }
-}
+//        throw new NotImplementedException("AsArraySegment");
+//    }
+//    public static ArraySegment<T> SelectSegment<T>(this T[] array, Range range)
+//    {
+//        var (offset, length) = range.GetOffsetAndLength(array.Length);
+//        return new ArraySegment<T>(array, offset, length);
+//    }
+//}

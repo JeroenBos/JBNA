@@ -1,4 +1,4 @@
-﻿
+﻿using static JBSnorro.Diagnostics.Contract;
 using JBSnorro;
 
 namespace JBNA;

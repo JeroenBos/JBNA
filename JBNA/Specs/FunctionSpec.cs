@@ -3,6 +3,7 @@ using JBSnorro.Collections;
 using JBSnorro.Diagnostics;
 using System.Linq;
 using T = System.Func<float, float>;
+using static JBSnorro.Diagnostics.Contract;
 
 namespace JBNA;
 
@@ -23,6 +24,8 @@ public class FunctionSpecFactory
     {
         // the implementation of this should just be reading a few bits
         // + a switch statement over the various implemented function types.
+        // then that would make this a rangeless function?
+        // Oh no wait, we didn't do that distinction anymore. the initial mapping will just be to short, and that's that. The rest can map how they see fit. Scaling will have to be done with the range [short.MinValue, short.MaxValue] in mind.
     }
     /// <summary>
     /// Converts the cistron into a pattern function.
@@ -76,7 +79,7 @@ public class FunctionSpecFactory
         {
             throw new NotImplementedException();
         }
-
+    }
         public static ICistronInterpreter<T> CreateFourierFunction(float minDomain = -1, float maxDomain = 1)
         {
             return new FourierFunctionCistronInterpreter(minDomain, maxDomain);
@@ -153,7 +156,6 @@ public class FunctionSpecFactory
         }
 
     }
-}
 //internal class Distribution : FunctionSpecFactory
 //{
 //    public Distribution(ICistronInterpreter2<T> interpreter) : base( interpreter)

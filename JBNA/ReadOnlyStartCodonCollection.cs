@@ -1,18 +1,16 @@
-﻿
-using JBSnorro;
+﻿using JBSnorro;
 using System.Collections.Immutable;
 using JBSnorro.Collections;
 using JBSnorro.Diagnostics;
+using JBSnorro.Extensions;
+using static JBSnorro.Diagnostics.Contract;
 
 namespace JBNA;
 
 public class ReadOnlyStartCodonCollection<T> where T : notnull
 {
-    /// <summary>
-    /// Counts for both start and stop.
-    /// </summary>
-    public int CodonBitLength { get; }
-    internal int CodonDataLength => (CodonBitLength + 63) / 64;
+    public int StartCodonBitCount { get; }
+    public int StopCodonBitCount { get; }
     public TCodon StopCodon { get; }
     /// <summary>
     /// Map from start codon to cistron type.
@@ -42,7 +40,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
     private ReadOnlyStartCodonCollection(IReadOnlyCollection<T> objects, IReadOnlyList<TCodon> keys)
     {
         Assert(objects.Count < 253);
-        CodonBitLength = 16;
+        StartCodonBitCount = 16;
         Assert(!keys.Contains((TCodon)255));
 
         var dict = new Dictionary<TCodon, T>(objects.Count);
@@ -68,28 +66,6 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
     }
 
 
-    public bool TryFindNext(TCodon[] data, int startIndex, out T? value)
-    {
-        return TryFindNext(data, startIndex, out value, out var _);
-    }
-    public bool TryFindNext(TCodon[] data, int startIndex, out T? value, out int index)
-    {
-        Assert(CodonDataLength == 1);
-        Assert(CodonBitLength == 16);
-        for (int i = startIndex; i < data.Length; i++)
-        {
-            if (this.Objects.TryGetValue(data[i], out var codon))
-            {
-                index = i;
-                value = codon;
-                return true;
-            }
-        }
-        index = -1;
-        value = default;
-        return false;
-    }
-
     /// <summary>
     /// Splits the data into cistrons, by finding all ranges that start with any of the codon starts. The returned ranges exclude the start and stop codons.
     /// </summary>
@@ -99,13 +75,13 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
         ulong index = 0;
         while (true)
         {
-            var (startCodonStartIndex, codonIndex) = data.IndexOfAny(this.StartCodons, CodonBitLength, startIndex: index);
+            var (startCodonStartIndex, codonIndex) = data.IndexOfAny(this.StartCodons, StartCodonBitCount, startIndex: index);
             if (startCodonStartIndex == -1)
                 break;
 
             TCodon codon = this.StartCodons[codonIndex];
-            ulong cistronStartIndex = (ulong)(startCodonStartIndex + this.CodonDataLength);
-            var stopCodonIndex = data.IndexOf(this.StopCodon, CodonBitLength, cistronStartIndex);
+            ulong cistronStartIndex = (ulong)(startCodonStartIndex + this.StartCodonBitCount);
+            var stopCodonIndex = data.IndexOf(this.StopCodon, StartCodonBitCount, cistronStartIndex);
 
             if (stopCodonIndex == -1)
             {
@@ -115,7 +91,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
             else
             {
                 yield return KeyValuePair.Create(codon, new Range((int)cistronStartIndex, (int)stopCodonIndex));
-                index = (ulong)stopCodonIndex + (ulong)CodonBitLength;
+                index = (ulong)stopCodonIndex + (ulong)this.StopCodonBitCount;
             }
         }
     }
@@ -151,7 +127,7 @@ public class Nature : ReadOnlyStartCodonCollection<CistronSpec>
     public ulong MaxCistronLength => ushort.MaxValue; // TODO: implement. is not used everywhere yet
     public UlongValue SubCistronStopCodon => new(0b1000_0001, 8);
 
-    public ICistronInterpreter Pattern1DInterpreter = new CistronInterpreter();
+    // public ICistronInterpreter Pattern1DInterpreter = new CistronInterpreter();
     public int PatternLengthBitCount => 8;
 
     public FunctionSpecFactory FunctionFactory { get; }
