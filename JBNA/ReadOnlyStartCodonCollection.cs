@@ -129,8 +129,12 @@ public class Nature : ReadOnlyStartCodonCollection<CistronSpec>
 
     // public ICistronInterpreter Pattern1DInterpreter = new CistronInterpreter();
     public int PatternLengthBitCount => 8;
+    public int FunctionTypeBitCount => 8;
+    public int FunctionRangeBitCount => 8;
+    public int FunctionTypeCount => FunctionSpecFactory.FunctionTypeCount;
 
     public FunctionSpecFactory FunctionFactory { get; }
+    
     public Nature(IReadOnlyCollection<CistronSpec> objects, Random random)
         : base(objects, random)
     {

@@ -1,5 +1,7 @@
 ﻿using JBSnorro;
 using JBSnorro.Collections;
+using JBSnorro.Extensions;
+
 using BitArray = JBSnorro.Collections.BitArray;
 using System.Collections;
 using System.Collections.Generic;
@@ -41,65 +43,53 @@ namespace JBNA
         {
             var genome = new HaploidalGenome(nature, out List<Chromosome> chromosomes);
 
-            var sequencesToInsert = new List<BitArrayReadOnlySegment>();
-            foreach (var spec in nature.Objects.Values)
-            {
-                var initialEncoding = GetInitialEncoding(spec, nature, random);
-                sequencesToInsert.Add(initialEncoding);
-            }
+            var sequencesToInsert = nature.Objects.Values
+                                                  .Select(spec => GetInitialEncoding(spec, nature, random))
+                                                  .ToList();
 
             ulong nonJunkLength = sequencesToInsert.Aggregate(0UL, (s, array) => s + array.Length);
-            ulong totalLength;
-            long junkLength;
-            if (nature.CistronsByAllele.TryGetValue(Allele.JunkRatio, out CistronSpec? junkJBNARatio))
-            {
-                var interpreter = (ICistronInterpreter<float>)junkJBNARatio.Interpreter;
-                var encodedJunkRatio = interpreter.InitialEncodedValue;
-                if (encodedJunkRatio != null)
-                {
-                    float junkRatio = interpreter.Interpret(encodedJunkRatio);
-                    totalLength = Math.Max(nonJunkLength, (ulong)(nonJunkLength / (1 - junkRatio)));
-                    junkLength = (long)(totalLength - nonJunkLength);
-                }
-                else
-                {
-                    totalLength = nonJunkLength;
-                    junkLength = 0;
-                }
-            }
-            else
-            {
-                totalLength = nonJunkLength;
-                junkLength = 0;
-            }
+            long junkLength = getJunkLength(nature, nonJunkLength);
+            ulong totalLength = (ulong)junkLength + nonJunkLength;
+
 
             // zip them into chromosomes
-            List<ulong> splitIndices = Enumerable.Range(0, sequencesToInsert.Count)
-                                               .Select(_ => (ulong)random.NextInt64(junkLength + 1))
-                                               .OrderBy(_ => _)
-                                               .Select((indexInChromosome, cistronIndex) => indexInChromosome + (cistronIndex == 0 ? 0UL : sequencesToInsert[cistronIndex - 1].Length))
-                                               .Scan(0, (junkSkipCount, cumulativeIndexInChromosome) => junkSkipCount + cumulativeIndexInChromosome)
-                                               .ToList();
+            var insertionIndices = getInsertionIndices(sequencesToInsert, junkLength, random);
 
 
-            byte[] chromosome = new byte[totalLength];
-            random.NextBytes(chromosome);
-            chromosomes.Add(new Chromosome(chromosome, genome.CodonCollection));
-#if DEBUG
-            BitArray bitArray = new BitArray(chromosome.Length);
-#endif
-            foreach (var (insertIndex, sequence) in Enumerable.Zip(splitIndices, sequencesToInsert))
+            var chromosomeData = BitArray.InitializeRandom(totalLength, random); // the junk
+            foreach (var (insertionIndex, sequence) in Enumerable.Zip(insertionIndices, sequencesToInsert))
             {
-#if DEBUG
-                for (ulong i = insertIndex; i < insertIndex + sequence.Length; i++)
-                    if (bitArray[i])
-                        throw new Exception();
-                    else
-                        bitArray[i] = true;
-#endif
-                sequence.CopyTo(chromosome, insertIndex);
+                sequence.CopyTo(chromosomeData, insertionIndex);
             }
+            chromosomes.Add(new Chromosome(chromosomeData, genome.CodonCollection));
             return genome;
+
+
+            static long getJunkLength(Nature nature, ulong nonJunkLength)
+            {
+                if (nature.CistronsByAllele.TryGetValue(Allele.JunkRatio, out CistronSpec? junkJBNARatio))
+                {
+                    var interpreter = (ICistronInterpreter<float>)junkJBNARatio.Interpreter;
+                    var encodedJunkRatio = interpreter.InitialEncodedValue;
+                    if (encodedJunkRatio != null)
+                    {
+                        float junkRatio = interpreter.Interpret(encodedJunkRatio);
+                        var totalLength = Math.Max(nonJunkLength, (ulong)(nonJunkLength / (1 - junkRatio)));
+                        var junkLength = (long)(totalLength - nonJunkLength);
+                        return junkLength;
+                    }
+                }
+                return 0;
+            }
+
+            static IEnumerable<ulong> getInsertionIndices(List<BitArrayReadOnlySegment> sequencesToInsert, long junkLength, Random random)
+            {
+                return Enumerable.Range(0, sequencesToInsert.Count)
+                                 .Select(_ => (ulong)random.NextInt64(junkLength + 1))
+                                 .OrderBy(_ => _)
+                                 .Select((junkSkipCount, cistronIndex) => junkSkipCount + (cistronIndex == 0 ? 0UL : sequencesToInsert[cistronIndex - 1].Length))
+                                 .Scan(0UL, (junkSkipCount, indexInChromosome) => indexInChromosome + junkSkipCount);
+            }
         }
         private static BitArrayReadOnlySegment GetInitialEncoding(CistronSpec spec, Nature nature, Random random)
         {

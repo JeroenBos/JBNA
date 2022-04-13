@@ -1,12 +1,11 @@
 using JBSnorro;
 using JBSnorro.Collections;
 using JBSnorro.Diagnostics;
-using System.Net.WebSockets;
 
 namespace JBNA;
 
 /// <summary>
-/// Converts a linear byte array to a 1-dimensional function
+/// Converts a bit sequence to a 1-dimensional function
 /// </summary>
 class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpreter<Func<int, byte[]>>, ICistronInterpreter<Func<int, short[]>>, ICistronInterpreter<Func<int, Half[]>>
 {
@@ -138,8 +137,8 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
 
         bool[] CreateBooleans(int length) => Create(length, b => b > 127, bitsPerItem: 8);
         byte[] CreateBytes(int length) => Create(length, s => (byte)s, bitsPerItem: 8);
-        short[] CreateShorts(int length) => Create(length, s => s);
-        Half[] CreateHalfs(int length) => Create(length, s => s.BitsAsHalf());
+        short[] CreateShorts(int length) => Create(length, s => (short)s);
+        Half[] CreateHalfs(int length) => Create(length, s => checked((short)s).BitsAsHalf());
 
 
         /// <summary>A backing field for the probability function.</summary>
@@ -147,7 +146,7 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
         /// <summary>A backing field for the pattern function.</summary>
         object? _pattern { get; set; }
 
-        Func<int, bool> ProbabilityFunction
+        DimensionfulFunction<bool> ProbabilityFunction
         {
             get
             {
@@ -155,35 +154,27 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
                 {
                     _probabilityFunction = this.Nature.FunctionFactory.Interpret1DFunction(this.ProbabilityFunctionCistron).Map(@short => (@short & 255) > 127);
                 }
-                return (Func<int, bool>)_probabilityFunction;
+                return (DimensionfulFunction<bool>)_probabilityFunction;
             }
         }
-        short[] Pattern
+
+        /// <summary>
+        /// Gets the function from value and dimension length to pattern value.
+        /// </summary>
+        DimensionfulDiscreteFunction getPatternValue
         {
             get
             {
                 if (_pattern == null)
                 {
-                    Func<int, int, short> x = this.Nature.FunctionFactory.Interpret1DPattern(this.PatternCistron);
+                    var  x = this.Nature.FunctionFactory.Interpret1DPattern(this.PatternCistron);
                     _pattern = x;
                 }
-                return (short[])_pattern;
+                return (DimensionfulDiscreteFunction)_pattern;
             }
         }
-        /// <param name="i">The index in the pattern.</param>
-        /// <param name="length">The scale of the to-be-created mesh.</param>
-        private short getPattern(int i, int length)
-        {
-            if (this.Repeats)
-            {
-                return Pattern[i % Pattern.Length];
-            }
-            else
-            {
-                return Pattern[(i * Pattern.Length) / length];
-            }
-        }
-        TResult[] Create<TResult>(int length, Func<short, TResult> selectResult, int bitsPerItem = 16)
+
+        TResult[] Create<TResult>(int length, Func<int, TResult> selectResult, int bitsPerItem = 16)
         {
             var reader = this.PatternCistron.ToBitReader();
             Contract.Assert(reader.Length >= (ulong)bitsPerItem * (ulong)length);
@@ -192,13 +183,13 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
             var result = new TResult[length];
             for (int i = 0; i < length; i++)
             {
-                if (ProbabilityFunction((short)i))
+                if (ProbabilityFunction(new OneDimensionalDiscreteQuantity(i, length)))
                 {
                     if (startIndex != i - 1)
                     {
                         startIndex = i;
                     }
-                    result[i] = selectResult(getPattern(i - startIndex, length));
+                    result[i] = selectResult(getPatternValue(new OneDimensionalDiscreteQuantity(i - startIndex, length)));
                 }
                 else
                     startIndex = int.MinValue;

@@ -70,7 +70,7 @@ namespace JBNA.Tests
             int populationSize = 10;
             int maxTime = 20;
             var random = new Random(1);
-            var specs = new CistronSpec[] { new CistronSpec() { Interpreter = FunctionSpecFactory.CreateFourierFunction() } };
+            var specs = new CistronSpec[] { new CistronSpec() { Interpreter = FunctionSpecFactory.FourierFunctionInterpreter } };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: false);
             var genome = RandomGeneration.CreateRandomHaploid(nature, random);
 
