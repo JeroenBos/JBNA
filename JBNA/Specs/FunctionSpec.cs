@@ -144,11 +144,11 @@ public class FunctionSpecFactory
         /// <summary>
         /// The number of bits at the beginning of the cistron that encode how many bits encode each subsequent number.
         /// </summary>
-        private uint bitsPerNumberBitLength;
+        private uint bitsPerNumberBitLength = 5;
         /// <summary>
         /// The minimum number of bits required to encode the first number (after the bitsPerNumber).
         /// </summary>
-        const int bitsForFirstNumber = 5;
+        const int bitsForFirstNumber = 4;
         public ulong MinBitCount => bitsPerNumberBitLength + bitsForFirstNumber;
         public ulong MaxBitCount { get; } = int.MaxValue;
 
@@ -159,7 +159,7 @@ public class FunctionSpecFactory
             Assert(cistron.Length >= this.MinBitCount);
             var reader = cistron.ToBitReader();
 
-            int nBits = reader.ReadInt32(bitsForFirstNumber); // in [0, 31]
+            int nBits = (int)reader.ReadUInt32(bitsForFirstNumber); // in [0, 31]
             Assert(reader.CanRead(nBits));
 
 

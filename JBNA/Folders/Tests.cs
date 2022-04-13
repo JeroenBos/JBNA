@@ -1,4 +1,5 @@
-﻿using JBNA;
+﻿using JBSnorro;
+using JBNA;
 using JBNA.Tests;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using static JBSnorro.Diagnostics.Contract;
 
 Console.WriteLine("Done");
 // new FloodFillTests().TestFloodfillF();
-new IntegrationTests().Test_Function_Converges();
+new IntegrationTests().Test_Number_Converges();
 
 namespace JBNA.Tests
 {
@@ -24,7 +25,6 @@ namespace JBNA.Tests
             var random = new Random(1);
             var specs = new CistronSpec[] { new CistronSpec { Interpreter = NumberSpec.CreateUniformFloatFactory(0, 10) } };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: false);
-            var genome = RandomGeneration.CreateRandomHaploid(nature, random);
 
             float scoreFunction(object?[] cistrons)
             {
@@ -76,16 +76,16 @@ namespace JBNA.Tests
 
             var samplingPoints = Enumerable.Range(0, 10).Select(i => (float)(i / (2 * Math.PI))).ToList();
             Func<float, float> realFunction = f => (float)Math.Sin(f);
-            float scoreFunction(object?[] cistrons)
+            float scoreFunction(object?[] interpretedCistrons)
             {
-                Assert(cistrons.Length == 1);
-                Assert(cistrons[0] is Func<float, float>);
-                var f = (Func<float, float>)cistrons[0]!;
+                Assert(interpretedCistrons.Length == 1);
+                Assert(interpretedCistrons[0] is DimensionfulContinuousFunction);
+                var f = (DimensionfulContinuousFunction)interpretedCistrons[0]!;
 
                 float difference = 0;
                 foreach (var point in samplingPoints)
                 {
-                    var prediction = f(point);
+                    var prediction = f(new OneDimensionalContinuousQuantity(point, Length: 1));
                     var real = realFunction(point);
                     var diff = Math.Abs(prediction - real);
                     difference += diff;

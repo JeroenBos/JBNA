@@ -108,7 +108,7 @@ namespace JBNA
                 
                 var result = BitArray.InitializeRandom(cistronLength + (ulong)nature.StartCodonBitCount + (ulong)nature.StopCodonBitCount, random);
                 result.Set(startCodon, nature.StartCodonBitCount, 0);
-                result.Set(nature.StopCodon, checked((int)(cistronLength - (ulong)nature.StopCodonBitCount)), 0);
+                result.Set(nature.StopCodon, nature.StopCodonBitCount, result.Length - (ulong)nature.StopCodonBitCount);
                 return result[Range.All];
             }
         }

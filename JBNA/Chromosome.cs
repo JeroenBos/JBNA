@@ -4,6 +4,7 @@ using JBSnorro.Collections;
 using JBSnorro.Diagnostics;
 using JBSnorro.Extensions;
 using System;
+using System.Diagnostics;
 using static JBSnorro.Diagnostics.Contract;
 
 namespace JBNA;
@@ -42,29 +43,27 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         this.frozen = true;
         foreach (var (cistronSpec, range) in nature.FindAllCistrons(this.data))
         {
-            if (Index.End.Equals(range.End))
+            bool hasImplicitStopCodon = Index.End.Equals(range.End);
+            if (hasImplicitStopCodon && !cistronSpec.Interpreter.ImplicitStopCodonAllowed)
             {
-                if (!cistronSpec.Interpreter.ImplicitStopCodonAllowed)
-                    throw new GenomeInviableException("Implicit stop codon not allowed");
-                if (this.data.Length < cistronSpec.Interpreter.MinBitCount)
-                    throw new GenomeInviableException("Implicit stop codon sequence too short");
+                throw new GenomeInviableException("Implicit stop codon not allowed");
             }
             if (cistronSpec.Merger?.CouldIgnoreInvalidCistrons != true)
             {
-                CheckLength(this.data, range, cistronSpec.Interpreter);
+                CheckLength(this.data, range, cistronSpec.Interpreter, this.nature);
             }
 
 
             yield return (cistronSpec, () =>
             {
-                CheckLength(this.data, range, cistronSpec.Interpreter);
+                CheckLength(this.data, range, cistronSpec.Interpreter, this.nature);
                 return cistronSpec.Interpreter.Interpret(this.data.SelectSegment(range));
-            }
-            );
+            });
 
-            static void CheckLength(BitArray data, Range range, ICistronInterpreter interpreter)
+            static void CheckLength(BitArray data, Range range, ICistronInterpreter interpreter, Nature nature)
             {
-                ulong cistronLength = data.Length;
+                bool hasImplicitStopCodon = Index.End.Equals(range.End);
+                ulong cistronLength = data.Length - (ulong)nature.StartCodonBitCount - (hasImplicitStopCodon ? 0 : (ulong)nature.StopCodonBitCount);
                 if (cistronLength < interpreter.MinBitCount)
                     throw new GenomeInviableException("Cistron too short");
                 if (cistronLength > interpreter.MaxBitCount)
@@ -146,7 +145,11 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         float mutationRate = GetMutationRate(interpret);
         float mutationRateStdDev = GetMutationRateStdDev(interpret);
 
-        ulong[] mutationBitIndices = randomlySelectBitIndices(mutationRate, mutationRateStdDev, random);
+        ulong[] mutationBitIndices = randomlySelectBitIndices(mutationRate, mutationRateStdDev, this.nature.MinimumNumberOfMutationsPerOffspring, random);
+        if (mutationBitIndices.Length != 0)
+        {
+
+        }
         this.Mutate(mutationBitIndices);
 
         this.ResizeMutate(interpret, random);
@@ -165,11 +168,11 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         }
     }
 
-    private ulong[] randomlySelectBitIndices(float rate, float rateStdDev, Random random)
+    private ulong[] randomlySelectBitIndices(float rate, float rateStdDev, int minimum, Random random)
     {
         float mutationCountMu = rate * this.Length;
         float mutationCountSi = rateStdDev * this.Length;
-        int mutationCount = (int)random.Normal(mutationCountMu, mutationCountSi);
+        int mutationCount = minimum + (int)random.Normal(mutationCountMu, mutationCountSi);
 
         ulong[] mutationIndices = random.ManySorted(mutationCount, 0, this.Length);
         return mutationIndices;
@@ -179,30 +182,26 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         Assert(!this.frozen, "Can't resize frozen chromosome");
 
         float insertionRate = GetBitInsertionRate(interpret);
-        // for simplicity let's not have a separate std dev here (yet)
-        ulong[] insertionBitIndices = randomlySelectBitIndices(insertionRate, insertionRate, random);
-        List<bool> insertionBits = insertionBitIndices.Select(_ => random.Next(2) == 0).ToList();
-
+        ulong[] insertionBitIndices = randomlySelectBitIndices(insertionRate, insertionRate, nature.MinimumNumberOfBitInsertionsPerOffspring, random);
+        var insertionBits = insertionBitIndices.Select(_ => random.Next(2) == 0).ToArray();
         this.InsertBits(insertionBitIndices, insertionBits);
 
 
         float removalRate = GetBitInsertionRate(interpret);
-        // for simplicity let's not have a separate std dev here (yet)
-        ulong[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, random);
-
+        ulong[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, nature.MinimumNumberOfBitRemovalsPerOffspring, random);
         this.RemoveBits(insertionBitIndices);
     }
     private void RemoveBits(ulong[] bitIndices)
     {
-        if (bitIndices.Length != 0)
-            throw new NotImplementedException();
+         this.data.RemoveAt(bitIndices);
     }
-    private void InsertBits(ulong[] bitIndices, IList<bool> bits)
+    private void InsertBits(ulong[] bitIndices, bool[] bits)
     {
-        Assert(bitIndices.Length == bits.Count);
+        Assert(bitIndices.Length == bits.Length);
+        
+        Array.Sort(bitIndices);
 
-        // we're in the middle of converting everything to use bits rather than bytes. This is next
-        throw new NotImplementedException();
+        this.data.InsertRange(bitIndices, bits);
     }
     private static float GetMutationRate(Func<Allele, object?> interpret)
     {
@@ -237,6 +236,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         return new Chromosome(this.data.Clone(), this.nature);
     }
 
+    [DebuggerHidden]
     Chromosome IHomologousSet<Chromosome>.Reproduce(Chromosome mate, Func<Allele, object?> interpret, Random random)
     {
         // Console.WriteLine("Warning: calling reproduce on potentially haploidal chromosome");

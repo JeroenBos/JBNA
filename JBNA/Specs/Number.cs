@@ -1,6 +1,7 @@
 ﻿using JBSnorro.Collections;
 using static JBSnorro.Diagnostics.Contract;
 using System.Linq;
+using System.Diagnostics;
 
 namespace JBNA;
 
@@ -93,6 +94,7 @@ public static class NumberSpec
         {
             Assert(cistron.Length == 8);
             byte b = byteInterpreter.Interpret(cistron);
+            throw new Exception("Somehow this is always the same value?");
 
             float result = this.Min + (this.Max - this.Min) * b / 255f;
             return result;
@@ -107,7 +109,7 @@ public static class NumberSpec
         //    return new byte[] { startCodon, encoded, stopCodon };
         //}
 
-        object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
+        [DebuggerHidden] object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
     }
 }
 

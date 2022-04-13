@@ -12,8 +12,16 @@ internal class Evolution<P> where P : IHomologousSet<P>
     private readonly Func<object?[], float> scoreFunction;
     private readonly Random random;
     private readonly int maxAttemptsUntilDrawGenomeIsInviable;
-
+    private readonly int maxAttemptsUntilReproducingIsInviable;
+    private readonly float fractionOfPopulationToBeReplacedByReproduction;
     private Genome<P>[] population;
+
+    // some stats
+    public int CumulativeSucceededReproductionCount { get; private set; }
+    public int CumulativeFailedReproductionCount { get; private set; }
+    public int NumberOfTimesThereWereFailedReproductions { get; private set; }
+
+
     /// <param name="scoreFunction">There may be extra objects appended at the end of the first argument (default cistron values). </param>
     public Evolution(
         Nature nature,
@@ -21,6 +29,8 @@ internal class Evolution<P> where P : IHomologousSet<P>
         Func<object?[], float> scoreFunction,
         int populationSize,
         int maxAttemptsUntilDrawGenomeIsInviable = 100,
+        int maxAttemptsUntilReproducingIsInviable = 20,
+        float fractionOfPopulationToBeReplacedByReproduction = 0.6f,
         Random? random = null)
     {
         this.nature = nature;
@@ -29,6 +39,8 @@ internal class Evolution<P> where P : IHomologousSet<P>
         this.scoreFunction = scoreFunction;
         this.population = new Genome<P>[populationSize];
         this.maxAttemptsUntilDrawGenomeIsInviable = maxAttemptsUntilDrawGenomeIsInviable;
+        this.maxAttemptsUntilReproducingIsInviable = maxAttemptsUntilReproducingIsInviable;
+        this.fractionOfPopulationToBeReplacedByReproduction = fractionOfPopulationToBeReplacedByReproduction;
     }
 
     public float[] Evolve(int maxTime, CancellationToken cancellationToken = default)
@@ -37,7 +49,6 @@ internal class Evolution<P> where P : IHomologousSet<P>
         float[] finalScores = null!;
         try
         {
-
             Populate(0);
             for (; t < maxTime; t++)
             {
@@ -103,14 +114,25 @@ internal class Evolution<P> where P : IHomologousSet<P>
     }
     private void Reproduce()
     {
-        int reproductionCount = (this.population.Length * 6) / 10;
-        var addionalPopulation = new Genome<P>[reproductionCount];
-        for (int i = 0; i < reproductionCount; i++)
+        int reproductionCount = (int)(this.population.Length * this.fractionOfPopulationToBeReplacedByReproduction);
+
+        var additionalPopulation = Enumerable.Range(0, reproductionCount)
+                                             .Select(_ => DrawReproductionPair())
+                                             .Select(pair => Reproduce(population[pair.Item1], population[pair.Item2], this.maxAttemptsUntilReproducingIsInviable))
+                                             .Where(offspring => offspring != null)
+                                             .ToArray();
+
+        int failedCount = reproductionCount - additionalPopulation.Length;
+        if (failedCount != 0)
         {
-            var pair = this.DrawReproductionPair();
-            addionalPopulation[i] = Reproduce(population[pair.Item1], population[pair.Item2]);
+            Console.WriteLine($"{failedCount} out of {reproductionCount} reproduction attempts failed!");
         }
-        addionalPopulation.CopyTo(this.population, this.population.Length - reproductionCount);
+        additionalPopulation.CopyTo(this.population, this.population.Length - additionalPopulation.Length);
+        
+        // update stats
+        this.CumulativeSucceededReproductionCount += additionalPopulation.Length;
+        this.CumulativeFailedReproductionCount += failedCount;
+        this.NumberOfTimesThereWereFailedReproductions += (failedCount == 0 ? 0 : 1);
     }
     private (int, int) DrawReproductionPair()
     {
@@ -144,11 +166,21 @@ internal class Evolution<P> where P : IHomologousSet<P>
             return (int)result;
         }
     }
-    private Genome<P> Reproduce(Genome<P> a, Genome<P> b)
+    private Genome<P>? Reproduce(Genome<P> a, Genome<P> b, int maxRetries)
     {
-        var descendant = a.Reproduce(b, random);
-        // do viability check here or?
-        return descendant;
+        while (maxRetries > 0)
+        {
+            try
+            {
+                var descendant = a.Reproduce(b, random);
+                descendant.Interpret();
+                return descendant;
+            }
+            catch (GenomeInviableException)
+            {
+            }
+            maxRetries--;
+        }
+        return null;
     }
-
 }

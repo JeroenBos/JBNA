@@ -53,7 +53,10 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
         foreach (var (spec, interpreter) in Enumerable.Zip(this.Specs, interpreters))
         {
             if (spec.Required && interpreter == null)
+            {
+                // this is generally not caught, as it is supposed to be true _by construction_
                 throw new GenomeInviableException($"Mandatory cistron not present");
+            }
         }
         return interpreters;
     }
