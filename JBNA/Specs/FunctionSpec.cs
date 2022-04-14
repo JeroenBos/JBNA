@@ -7,6 +7,7 @@ public class FunctionSpecFactory
     public static int FunctionTypeCount => functionTypes.Length;
 
     public Nature Nature { get; }
+    // public ICistronInterpreter<DimensionfulDiscreteFunction> DiscretePatternInterpreter { get; } as opposed to the function
     public ICistronInterpreter<DimensionfulDiscreteFunction> DiscretePatternInterpreter { get; }
     public ICistronInterpreter<DimensionfulContinuousFunction> ContinuousPatternInterpreter { get; }
     public FunctionSpecFactory(Nature nature)
@@ -93,6 +94,7 @@ public class FunctionSpecFactory
             int patternLength = reader.ReadInt32(bitCount: Nature.PatternLengthBitCount);
 
             var function = Nature.FunctionFactory.Interpret1DFunction(reader.RemainingSegment); // .Map(impl, domainLength: patternLength);
+            // what?? this isn't being used?
             return impl;
             int impl(OneDimensionalDiscreteQuantity arg)
             {

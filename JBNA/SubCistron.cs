@@ -4,45 +4,52 @@
 /// Splits a Cistron up into multiple cistrons, assuming they're separated by Nature.StopCodon.
 /// These subcistrons don't have start codons (keys) to signify them; they are ordered.
 /// </summary>
-public class SubCistronInterpreter : ICistronInterpreter<List<BitArrayReadOnlySegment>>
+public class SubCistronInterpreter : ICistronInterpreter<ImmutableArray<BitArrayReadOnlySegment>>
 {
+    public ImmutableArray<ICistronInterpreter> SubInterpreters { get; }
+    /// <summary>
+    /// The number of cistrons that are mandatory. The remaining interpreters can be foregone.
+    /// </summary>
+    public int MinCistronCount { get; }
     public ulong MinBitCount { get; }
     public ulong MaxBitCount { get; }
 
-    private readonly (int MinBitCount, ulong MaxBitCount)[] _specs;
-    private readonly int minCistronCount;
-    private readonly Nature nature;
+    protected readonly Nature nature;
 
-    public SubCistronInterpreter(Nature nature, params (int MinBitCount, ulong MaxBitCount)[] subCistronSpec) 
-        : this(nature, subCistronSpec.Length, subCistronSpec)
+    public SubCistronInterpreter(Nature nature, params ICistronInterpreter[] subInterpreters)
+        : this(nature, subInterpreters.Length, subInterpreters)
     {
     }
-    public SubCistronInterpreter(Nature nature, int minCistronCount, params (int MinBitCount, ulong MaxBitCount)[] subCistronSpec)
+    public SubCistronInterpreter(Nature nature, int minCistronCount, params ICistronInterpreter[] subInterpreters)
+        : this(nature, minCistronCount, subInterpreters.ToImmutableArray())
     {
-        Contract.Requires(nature != null);
-        Contract.Requires(subCistronSpec != null);
-        Contract.Requires(0 <= minCistronCount && minCistronCount <= subCistronSpec.Length);
-        Contract.Requires(Contract.ForAll(subCistronSpec, spec => spec.MinBitCount >= 0 && (ulong)spec.MinBitCount <= spec.MaxBitCount));
+    }
+    public SubCistronInterpreter(Nature nature, int minCistronCount, ImmutableArray<ICistronInterpreter> subInterpreters)
+    {
+        Requires(nature != null);
+        Requires(subInterpreters != null);
+        Requires(0 <= minCistronCount && minCistronCount <= subInterpreters.Length);
+        Requires(ForAll(subInterpreters, spec => spec.MinBitCount >= 0 && spec.MinBitCount <= spec.MaxBitCount));
 
         this.nature = nature;
-        this._specs = subCistronSpec.ToArray();
-        this.minCistronCount = minCistronCount;
-        (this.MinBitCount, this.MaxBitCount) = ComputeMinMaxBitCount();
+        this.SubInterpreters = subInterpreters;
+        this.MinCistronCount = minCistronCount;
+        (this.MinBitCount, this.MaxBitCount) = ComputeMinMaxBitCount(subInterpreters);
 
 
-        (ulong, ulong) ComputeMinMaxBitCount()
+        static (ulong, ulong) ComputeMinMaxBitCount(IEnumerable<ICistronInterpreter> subInterpreters)
         {
-            var min = this._specs.Sum(spec => (long)spec.MinBitCount);
-            var max = this._specs.Sum(spec => (long)spec.MaxBitCount);
+            var min = subInterpreters.Sum(spec => (long)spec.MinBitCount);
+            var max = subInterpreters.Sum(spec => (long)spec.MaxBitCount);
             return ((ulong)min, (ulong)max);
         }
     }
 
-    public List<BitArrayReadOnlySegment> Interpret(BitArrayReadOnlySegment cistron)
+    protected List<BitArrayReadOnlySegment> Split(BitArrayReadOnlySegment cistron)
     {
         var result = impl(cistron, this.nature).ToList();
-        if (result.Count < this.minCistronCount)
-            throw new GenomeInviableException($"Not enough subcistrons in cistron ({result.Count} < {this.minCistronCount})");
+        if (result.Count < this.MinCistronCount)
+            throw new GenomeInviableException($"Not enough subcistrons in cistron ({result.Count} < {this.MinCistronCount})");
         return result;
 
 
@@ -60,14 +67,69 @@ public class SubCistronInterpreter : ICistronInterpreter<List<BitArrayReadOnlySe
                 }
 
                 long nestStartIndex = stopIndex + nature.SubCistronStopCodon.Length;
-                Contract.Assert<NotImplementedException>(nestStartIndex  <= int.MaxValue);
+                Assert<NotImplementedException>(nestStartIndex <= int.MaxValue);
                 var range = new Range((int)startBitIndex, (int)stopIndex);
                 yield return cistron[range];
 
-                startBitIndex  = (ulong)nestStartIndex;
+                startBitIndex = (ulong)nestStartIndex;
                 count++;
             }
         }
+    }
+    ImmutableArray<BitArrayReadOnlySegment> ICistronInterpreter<ImmutableArray<BitArrayReadOnlySegment>>.Interpret(BitArrayReadOnlySegment cistron)
+    {
+        return Split(cistron).ToImmutableArray();
+    }
 
+    [DebuggerHidden]
+    public static SubCistronInterpreter<T, U, (T, U)> Create<T, U, TCombined>(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter)
+    {
+        return Create(nature, tInterpreter, uInterpreter, (t, u) => (t, u));
+    }
+    [DebuggerHidden]
+    public static SubCistronInterpreter<T, U, TCombined> Create<T, U, TCombined>(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter, Func<T, U, TCombined> combiner)
+    {
+        return new SubCistronInterpreter<T, U, TCombined>(nature, tInterpreter, uInterpreter, combiner);
+    }
+}
+
+
+public class SubCistronInterpreter<T, U, TCombined> : SubCistronInterpreter
+{
+    private readonly Func<T, U, TCombined> combiner;
+
+    public SubCistronInterpreter(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter, Func<T, U, TCombined> combiner)
+        : base(nature, tInterpreter, uInterpreter)
+    {
+        this.combiner = combiner;
+    }
+
+    public TCombined Interpret(BitArrayReadOnlySegment cistron)
+    {
+        var subcistrons = base.Split(cistron);
+        var t = ((ICistronInterpreter<T>)this.SubInterpreters[0]).Interpret(subcistrons[0]);
+        var u = ((ICistronInterpreter<U>)this.SubInterpreters[1]).Interpret(subcistrons[1]);
+        var result = combiner(t, u);
+        return result;
+    }
+}
+public class SubCistronInterpreter<T, U, V, TCombined> : SubCistronInterpreter
+{
+    private readonly Func<T, U, V, TCombined> combiner;
+
+    public SubCistronInterpreter(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter, ICistronInterpreter<V> vInterpreter, Func<T, U, V, TCombined> combiner)
+        : base(nature, tInterpreter, uInterpreter)
+    {
+        this.combiner = combiner;
+    }
+
+    public TCombined Interpret(BitArrayReadOnlySegment cistron)
+    {
+        var subcistrons = base.Split(cistron);
+        var t = ((ICistronInterpreter<T>)this.SubInterpreters[0]).Interpret(subcistrons[0]);
+        var u = ((ICistronInterpreter<U>)this.SubInterpreters[1]).Interpret(subcistrons[1]);
+        var v = ((ICistronInterpreter<V>)this.SubInterpreters[2]).Interpret(subcistrons[2]);
+        var result = combiner(t, u, v);
+        return result;
     }
 }

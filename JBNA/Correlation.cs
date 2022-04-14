@@ -6,9 +6,14 @@ namespace JBNA;
 class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpreter<Func<int, byte[]>>, ICistronInterpreter<Func<int, short[]>>, ICistronInterpreter<Func<int, Half[]>>
 {
     private readonly Nature nature;
-    private readonly SubCistronInterpreter subInterpreter;
+    private readonly SubCistronInterpreter<object, object, object> subCistronInterpreter;
     public CorrelationSpec(Nature nature)
     {
+        subCistronInterpreter = SubCistronInterpreter.Create(
+            nature, 
+            nature.FunctionFactory.DiscretePatternInterpreter,
+
+
         var functionSpec = (MinBitCount: 0, MaxBitCount: 1UL);
         var probabilitySpec = (MinBitCount: 0, MaxBitCount: 1UL);
 
