@@ -7,8 +7,19 @@
     <Nullable>enable</Nullable>
     <LangVersion>10</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<NoWarn>CS7022</NoWarn>
   </PropertyGroup>
 
+	<ItemGroup>
+		<!-- <Using Include="System.Diagnostics"/> Conflicts Contracts with JBSnorro.Diagnostics.Contracts-->
+		<Using Include="System.Diagnostics"/>
+		<Using Include="System.Collections.Immutable"/>
+		<Using Include="JBSnorro" />
+		<Using Include="JBSnorro.Collections" />
+		<Using Include="JBSnorro.Diagnostics" />
+		<Using Include="JBSnorro.Extensions" />
+		<Using Include="JBSnorro.Diagnostics.Contract" Static="true"/>
+	</ItemGroup>
   <ItemGroup>
 	  <PackageReference Include="JBSnorro" Version="0.0.13" Condition="'$(Configuration)' != 'Debug'" />
 	  <ProjectReference Include="..\..\JBSnorro\JBSnorro\JBSnorro.csproj" Condition="'$(Configuration)' == 'Debug'" />
@@ -27,6 +38,6 @@
 	  </PackageReference>
   </ItemGroup>
 
-  <ItemGroup>
+	<ItemGroup>
   </ItemGroup>
 </Project>

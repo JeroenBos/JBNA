@@ -1,8 +1,6 @@
 ﻿global using TCodon = System.UInt64;
 global using HaploidalGenome = JBNA.Genome<JBNA.Chromosome>;
 global using DiploidalGenome = JBNA.Genome<JBNA.DiploidChromosome>;
-using System.Collections.ObjectModel;
-using JBSnorro.Collections;
 
 namespace JBNA;
 

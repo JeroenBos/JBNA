@@ -1,4 +1,3 @@
-using JBSnorro.Collections;
 namespace JBNA;
 
 public delegate TResult RangelessDelegate<T, TResult>(T input, T min, T max);

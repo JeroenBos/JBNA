@@ -1,8 +1,4 @@
-﻿using static JBSnorro.Diagnostics.Contract;
-using JBSnorro;
-using System.Diagnostics;
-
-namespace JBNA;
+﻿namespace JBNA;
 
 public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
 {

@@ -1,12 +1,4 @@
 ﻿
-using JBSnorro;
-using JBSnorro.Collections;
-using JBSnorro.Diagnostics;
-using JBSnorro.Extensions;
-using System;
-using System.Diagnostics;
-using static JBSnorro.Diagnostics.Contract;
-
 namespace JBNA;
 
 public sealed class Chromosome : IHomologousSet<Chromosome>
@@ -58,7 +50,8 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
             {
                 CheckLength(range, this.data.Length, cistronSpec.Interpreter, this.nature);
                 return cistronSpec.Interpreter.Interpret(this.data.SelectSegment(range));
-            });
+            }
+            );
 
             static void CheckLength(Range cistronRange, ulong rangeContainerLength, ICistronInterpreter interpreter, Nature nature)
             {
@@ -182,7 +175,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         float insertionRateStdDev = GetBitInsertionRateStdDev(interpret);
         ulong[] insertionBitIndices = randomlySelectBitIndices(insertionRate, insertionRateStdDev, nature.MinimumNumberOfBitInsertionsPerOffspring, endIsPossibleIndex: true, random);
         var insertionBits = insertionBitIndices.Select(_ => random.Next(2) == 0).ToArray();
-        
+
         this.InsertBits(insertionBitIndices, insertionBits);
 
         float removalRate = GetBitRemovalRate(interpret);
@@ -203,7 +196,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     private void InsertBits(ulong[] bitIndices, bool[] bits)
     {
         Assert(bitIndices.Length == bits.Length);
-        
+
         Array.Sort(bitIndices);
 
         this.data.InsertRange(bitIndices, bits);
@@ -263,7 +256,7 @@ public sealed class DiploidChromosome : IHomologousSet<DiploidChromosome>
         this.B = b;
     }
 
-    public DiploidChromosome Reproduce(DiploidChromosome mate, Func<Allele, object?> interpret, Random random)
+    DiploidChromosome IHomologousSet<DiploidChromosome>.Reproduce(DiploidChromosome mate, Func<Allele, object?> interpret, Random random)
     {
         Assert(ReferenceEquals(mate.codonCollection, this.codonCollection));
 
@@ -285,16 +278,13 @@ public sealed class DiploidChromosome : IHomologousSet<DiploidChromosome>
         return this.A.Reproduce(this.B, interpret, random);
     }
 
-
-    public IEnumerable<(CistronSpec, Func<object>)> FindCistrons()
+    IEnumerable<(CistronSpec, Func<object>)> IHomologousSet<DiploidChromosome>.FindCistrons()
     {
         throw new NotImplementedException();
     }
-
-    public DiploidChromosome Reproduce(Func<Allele, object?> interpret, Random random)
+    DiploidChromosome IHomologousSet<DiploidChromosome>.Reproduce(Func<Allele, object?> interpret, Random random)
     {
         Console.WriteLine("Warning: reproducing diploidal with itself");
-        return Reproduce(this, interpret, random);
+        return ((IHomologousSet<DiploidChromosome>)this).Reproduce(this, interpret, random);
     }
-
 }

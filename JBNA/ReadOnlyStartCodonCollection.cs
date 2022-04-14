@@ -1,12 +1,4 @@
-﻿using JBSnorro;
-using System.Collections.Immutable;
-using JBSnorro.Collections;
-using JBSnorro.Diagnostics;
-using JBSnorro.Extensions;
-using static JBSnorro.Diagnostics.Contract;
-using System.Diagnostics;
-
-namespace JBNA;
+﻿namespace JBNA;
 
 public class ReadOnlyStartCodonCollection<T> where T : notnull
 {

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+namespace JBSnorro;
 
 public record struct Point
 {

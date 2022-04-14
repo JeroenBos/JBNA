@@ -1,7 +1,4 @@
-﻿using JBSnorro;
-using static JBSnorro.Diagnostics.Contract;
-
-namespace JBNA;
+﻿namespace JBNA;
 
 internal class Evolution<P> where P : IHomologousSet<P>
 {
