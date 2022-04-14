@@ -1,5 +1,6 @@
-using JBSnorro.Diagnostics;
 using Xunit;
+
+namespace JBNA.Tests;
 
 public class FloodFillTests
 {

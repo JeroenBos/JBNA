@@ -1,13 +1,4 @@
-﻿using JBSnorro;
-using JBSnorro.Collections;
-using JBSnorro.Diagnostics;
-using System.Linq;
-using static JBSnorro.Diagnostics.Contract;
-using System.Collections.Immutable;
-
-namespace JBNA;
-
-
+﻿namespace JBNA;
 
 public class FunctionSpecFactory
 {

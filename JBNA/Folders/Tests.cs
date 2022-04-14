@@ -1,14 +1,5 @@
-﻿using JBSnorro;
-using JBNA;
-using JBNA.Tests;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using JBNA.Tests;
 using Xunit;
-using static JBSnorro.Diagnostics.Contract;
-using JBSnorro.Collections;
 
 // new FloodFillTests().TestFloodfillF();
 new IntegrationTests().Test_Function_Converges();

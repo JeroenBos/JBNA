@@ -1,25 +1,25 @@
 using Xunit;
-using JBSnorro.Collections;
-using static JBSnorro.Diagnostics.Contract;
+
+namespace JBNA.Tests;
 
 public class BinaryReaderTests
 {
     [Fact]
     public void Can_Construct()
     {
-        var reader = new BitReader(new JBSnorro.Collections.BitArray());
+        var reader = new BitReader(new BitArray());
         Assert(reader.Length == 0);
     }
     [Fact]
     public void Can_Read_FalseBit()
     {
-        var reader = new BitReader(new JBSnorro.Collections.BitArray(new bool[] { false }));
+        var reader = new BitReader(new BitArray(new bool[] { false }));
         Assert(reader.ReadBit() == false);
     }
     [Fact]
     public void Can_Read_TrueBit()
     {
-        var reader = new BitReader(new JBSnorro.Collections.BitArray(new bool[] { true }));
+        var reader = new BitReader(new BitArray(new bool[] { true }));
         Assert(reader.ReadBit() == true);
     }
     [Fact]
