@@ -94,7 +94,7 @@ internal class Evolution<P> where P : IHomologousSet<P>
             }
             return individual;
         }
-        throw new Exception("Attempts exceeded");
+        throw new Exception("Max attempts of drawing genomes exceeded");
     }
     private float[] Score()
     {

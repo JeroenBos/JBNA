@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 using Xunit;
 using static JBSnorro.Diagnostics.Contract;
 
-Console.WriteLine("Done");
 // new FloodFillTests().TestFloodfillF();
-new IntegrationTests().Test_Number_Converges();
+new IntegrationTests().Test_Number_Converges_With_Defaults();
+Console.WriteLine("Done");
 
 namespace JBNA.Tests
 {
@@ -44,7 +44,7 @@ namespace JBNA.Tests
         public void Test_Number_Converges_With_Defaults()
         {
             int populationSize = 100;
-            int maxTime = 1001;
+            int maxTime = 10;
             var random = new Random(1);
             var specs = new CistronSpec[] { new CistronSpec { Interpreter = NumberSpec.CreateUniformFloatFactory(0, 10) } };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: true);

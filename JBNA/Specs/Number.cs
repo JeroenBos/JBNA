@@ -94,7 +94,6 @@ public static class NumberSpec
         {
             Assert(cistron.Length == 8);
             byte b = byteInterpreter.Interpret(cistron);
-            throw new Exception("Somehow this is always the same value?");
 
             float result = this.Min + (this.Max - this.Min) * b / 255f;
             return result;

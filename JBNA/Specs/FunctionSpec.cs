@@ -152,32 +152,40 @@ public class FunctionSpecFactory
         public ulong MinBitCount => bitsPerNumberBitLength + bitsForFirstNumber;
         public ulong MaxBitCount { get; } = int.MaxValue;
 
-        private FourierFunctionCistronInterpreter() { }
 
         public DimensionfulContinuousFunction Interpret(BitArrayReadOnlySegment cistron)
         {
+            const int minCoefficientBitCount = 2;
             Assert(cistron.Length >= this.MinBitCount);
             var reader = cistron.ToBitReader();
+            Assert(reader.CanRead(MinBitCount));
 
-            int nBits = (int)reader.ReadUInt32(bitsForFirstNumber); // in [0, 31]
-            Assert(reader.CanRead(nBits));
+            ulong coefficientBitCount = minCoefficientBitCount + reader.ReadUInt32(bitsForFirstNumber); // in a_0MinBitCount + [0, 31]
 
+            ulong a_0BitCount = Math.Min(coefficientBitCount, reader.RemainingLength);
+            long a_0 = reader.ReadInt32((int)a_0BitCount);
 
-            
-            var (N, rem) = Math.DivRem(checked((int)reader.RemainingLength), 2 * nBits);
-            bool ab_odd = rem >= nBits;
-            var a_n = new int[N + (ab_odd ? 1 : 0)];
-            var b_n = new int[N];
+            var (N, rem) = Math.DivRem(reader.RemainingLength, 2 * coefficientBitCount);
+            bool extra_a = rem >= minCoefficientBitCount;
+            bool extra_b = rem >= minCoefficientBitCount + coefficientBitCount;
+            var a_n = new int[N + (extra_a ? 1UL : 0)];
+            var b_n = new int[N + (extra_b ? 1UL : 0)];
 
-            long a_0 = reader.ReadInt32(nBits);
-            for (int i = 1; i < N; i++)
+            for (int i = 0; i < (int)N; i++)
             {
-                a_n[i] = reader.ReadInt32(nBits);
-                b_n[i] = reader.ReadInt32(nBits);
+                a_n[i] = reader.ReadInt32((int)coefficientBitCount);
+                b_n[i] = reader.ReadInt32((int)coefficientBitCount);
             }
-            if (ab_odd)
-                a_n[^1] = reader.ReadInt32(nBits);
+            if (extra_a)
+            {
+                a_n[^1] = reader.ReadInt32((int)Math.Min(coefficientBitCount, reader.RemainingLength));
+                if (extra_b)
+                {
+                    b_n[^1] = reader.ReadInt32((int)Math.Min(coefficientBitCount, reader.RemainingLength));
+                }
+            }
 
+            Assert(reader.RemainingLength < 2);
             return f;
 
             float f(OneDimensionalContinuousQuantity arg)
@@ -198,9 +206,8 @@ public class FunctionSpecFactory
         }
 
 
-
+        private FourierFunctionCistronInterpreter() { }
         object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron)!;
-
         DimensionfulDiscreteFunction ICistronInterpreter<DimensionfulDiscreteFunction>.Interpret(BitArrayReadOnlySegment cistron)
         {
             throw new NotImplementedException();

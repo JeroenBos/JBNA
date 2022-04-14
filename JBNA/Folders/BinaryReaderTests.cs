@@ -46,7 +46,7 @@ public class BinaryReaderTests
     public void Can_Read_Two_ULong()
     {
         var reader = new BitReader(new[] { 0b0000_0010UL }, 64);
-        Assert(reader.ReadInt64() == 2);
+        Assert(reader.ReadUInt64() == 2);
     }
     [Fact]
     public void Reading_bits_is_successive()
@@ -86,7 +86,7 @@ public class BinaryReaderTests
     public void Can_read_bytes_over_ulong_crossing()
     {
         var reader = new BitReader(new[] { (0b1001UL << 60) | 1234, 0b1100UL }, 100);
-        var x = reader.ReadInt64(bitCount: 60);
+        var x = reader.ReadUInt64(bitCount: 60);
         Assert(x == 1234);
         var y = reader.ReadByte();
         Assert(y == 0b1100_1001);

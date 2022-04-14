@@ -1,5 +1,6 @@
 ﻿using static JBSnorro.Diagnostics.Contract;
 using JBSnorro;
+using System.Diagnostics;
 
 namespace JBNA;
 
@@ -35,7 +36,7 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
     private Func<object>?[] GetInterpreters()
     {
         var interpreters = new Func<object>?[this.Specs.Count];
-        foreach (var (spec, interpreter) in Chromosomes.SelectMany(c => c.FindCistrons()))
+        foreach (var (spec, interpreter) in Chromosomes.SelectMany([DebuggerHidden] (c) => c.FindCistrons()))
         {
             int specIndex = this.SpecIndices[spec]; // must be present, otherwise throw
             var alreadyPresent = interpreters[specIndex];
@@ -63,6 +64,7 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
     /// <summary>
     /// Gets the values of the cistrons in the order of the specs.
     /// </summary>
+    [DebuggerHidden]
     public object?[] Interpret()
     {
         if (this.interpretations == null)

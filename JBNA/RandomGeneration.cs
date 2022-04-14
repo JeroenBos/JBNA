@@ -34,7 +34,7 @@ namespace JBNA
                 throw new NotImplementedException("Divide cistrons over chromosomes");
 
             // order in which the cistrons will be placed in the chromosomes
-            var order = random.GenerateUniqueRandomNumbers(specs.Count, specs.Count);
+            var order = random.ManyUnique(specs.Count, specs.Count);
 
             var nature = new Nature(specs, random);
             return nature;

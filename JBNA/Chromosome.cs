@@ -50,20 +50,19 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
             }
             if (cistronSpec.Merger?.CouldIgnoreInvalidCistrons != true)
             {
-                CheckLength(this.data, range, cistronSpec.Interpreter, this.nature);
+                CheckLength(range, this.data.Length, cistronSpec.Interpreter, this.nature);
             }
 
 
             yield return (cistronSpec, () =>
             {
-                CheckLength(this.data, range, cistronSpec.Interpreter, this.nature);
+                CheckLength(range, this.data.Length, cistronSpec.Interpreter, this.nature);
                 return cistronSpec.Interpreter.Interpret(this.data.SelectSegment(range));
             });
 
-            static void CheckLength(BitArray data, Range range, ICistronInterpreter interpreter, Nature nature)
+            static void CheckLength(Range cistronRange, ulong rangeContainerLength, ICistronInterpreter interpreter, Nature nature)
             {
-                bool hasImplicitStopCodon = Index.End.Equals(range.End);
-                ulong cistronLength = data.Length - (ulong)nature.StartCodonBitCount - (hasImplicitStopCodon ? 0 : (ulong)nature.StopCodonBitCount);
+                ulong cistronLength = (ulong)cistronRange.GetOffsetAndLength(checked((int)rangeContainerLength)).Length;
                 if (cistronLength < interpreter.MinBitCount)
                     throw new GenomeInviableException("Cistron too short");
                 if (cistronLength > interpreter.MaxBitCount)
@@ -170,9 +169,11 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 
     private ulong[] randomlySelectBitIndices(float rate, float rateStdDev, int minimum, Random random)
     {
+        Requires(minimum >= 0);
+
         float mutationCountMu = rate * this.Length;
         float mutationCountSi = rateStdDev * this.Length;
-        int mutationCount = minimum + (int)random.Normal(mutationCountMu, mutationCountSi);
+        int mutationCount = minimum + Math.Max(0, (int)random.Normal(mutationCountMu, mutationCountSi));
 
         ulong[] mutationIndices = random.ManySorted(mutationCount, 0, this.Length);
         return mutationIndices;
@@ -189,11 +190,14 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 
         float removalRate = GetBitInsertionRate(interpret);
         ulong[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, nature.MinimumNumberOfBitRemovalsPerOffspring, random);
-        this.RemoveBits(insertionBitIndices);
+        this.RemoveBits(insertionBitIndices.Unique().ToArray());
     }
     private void RemoveBits(ulong[] bitIndices)
     {
-         this.data.RemoveAt(bitIndices);
+        Requires(bitIndices != null);
+        Requires(bitIndices.AreUnique());
+
+        this.data.RemoveAt(bitIndices);
     }
     private void InsertBits(ulong[] bitIndices, bool[] bits)
     {

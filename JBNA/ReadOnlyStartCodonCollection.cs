@@ -33,7 +33,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
     }
     private static IReadOnlyList<TCodon> CreateRandomKeys(int count, Random random)
     {
-        return random.GenerateUniqueRandomNumbers(drawCount: count, max: 254);
+        return random.ManyUnique(drawCount: count, max: 254);
     }
     public ReadOnlyStartCodonCollection(IReadOnlyCollection<T> objects, Random random) : this(objects, CreateRandomKeys(objects.Count, random))
     {
@@ -69,7 +69,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
     /// </summary>
     public IEnumerable<KeyValuePair<TCodon, Range>> FindAllCodons(BitArray data)
     {
-        Contract.Assert<NotImplementedException>(data.Length <= int.MaxValue);
+        Assert<NotImplementedException>(data.Length <= int.MaxValue);
         ulong startIndex = 0;
         while (true)
         {
@@ -79,7 +79,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
 
             TCodon codon = this.StartCodons[codonIndex];
             ulong cistronStartIndex = (ulong)(startCodonStartIndex + this.StartCodonBitCount);
-            Contract.Assert(StopCodon != 0);
+            Assert(StopCodon != 0);
             var stopCodonIndex = data.IndexOfLastConsecutive(this.StopCodon, StartCodonBitCount, cistronStartIndex); // LastConsecutive in case the stop codon is just zeroes, but I'm going to disallow that I think
 
             if (stopCodonIndex == -1)
@@ -89,6 +89,7 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
             }
             else
             {
+                Assert(stopCodonIndex > startCodonStartIndex);
                 yield return KeyValuePair.Create(codon, new Range((int)cistronStartIndex, (int)stopCodonIndex));
                 startIndex = (ulong)stopCodonIndex + (ulong)this.StopCodonBitCount + 1;
             }
