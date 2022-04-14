@@ -12,19 +12,21 @@ public interface IHomologousSet<T> where T : IHomologousSet<T>
     IEnumerable<(CistronSpec, Func<object>)> FindCistrons();
     T Reproduce(Func<Allele, object?> interpret, Random random);
     T Reproduce(T mate, Func<Allele, object?> interpret, Random random);
-
-
 }
 
 public enum Allele
 {
-    Custom = 0,
+    None = 0,
     JunkRatio,
-    DefaultMutationRate,
-    DefaultMutationRateStdDev,
+    DefaultBitMutationRate,
+    DefaultBitMutationRateStdDev,
     CrossoverRate,
-    BitRemovalRate,
     BitInsertionRate,
+    BitInsertionRateStdDev,
+    BitRemovalRate,
+    BitRemovalRateStdDev,
+
+    CustomRangeStart = 256
 }
 public interface ICistronInterpreter
 {

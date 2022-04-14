@@ -8,9 +8,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 using static JBSnorro.Diagnostics.Contract;
+using JBSnorro.Collections;
 
 // new FloodFillTests().TestFloodfillF();
-new IntegrationTests().Test_Number_Converges_With_Defaults();
+new IntegrationTests().Test_Function_Converges();
 Console.WriteLine("Done");
 
 namespace JBNA.Tests
@@ -23,7 +24,7 @@ namespace JBNA.Tests
             int populationSize = 100;
             int maxTime = 11;
             var random = new Random(1);
-            var specs = new CistronSpec[] { new CistronSpec { Interpreter = NumberSpec.CreateUniformFloatFactory(0, 10) } };
+            var specs = new[] { new CistronSpec(Allele.CustomRangeStart, interpreter: NumberSpec.CreateUniformFloatFactory(0, 10)) };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: false);
 
             float scoreFunction(object?[] cistrons)
@@ -46,7 +47,7 @@ namespace JBNA.Tests
             int populationSize = 100;
             int maxTime = 10;
             var random = new Random(1);
-            var specs = new CistronSpec[] { new CistronSpec { Interpreter = NumberSpec.CreateUniformFloatFactory(0, 10) } };
+            var specs = new[] { new CistronSpec(Allele.CustomRangeStart, interpreter: NumberSpec.CreateUniformFloatFactory(0, 10)) };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: true);
             var genome = RandomGeneration.CreateRandomHaploid(nature, random);
 
@@ -70,7 +71,7 @@ namespace JBNA.Tests
             int populationSize = 10;
             int maxTime = 20;
             var random = new Random(1);
-            var specs = new CistronSpec[] { new CistronSpec() { Interpreter = FunctionSpecFactory.FourierFunctionInterpreter } };
+            var specs = new[] { new CistronSpec(Allele.CustomRangeStart, interpreter: FunctionSpecFactory.FourierFunctionInterpreter) };
             var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: false);
             var genome = RandomGeneration.CreateRandomHaploid(nature, random);
 
@@ -97,6 +98,45 @@ namespace JBNA.Tests
             var finalScore = evolution.Evolve(maxTime);
 
             Assert(finalScore[0] > 9.5);
+        }
+        [Fact]
+        public void Test_Bits_Can_Be_Inserted_at_the_end_of_a_chromosome()
+        {
+            var random = new Random();
+            var nature = new Nature(Array.Empty<CistronSpec>(), random)
+            {
+                MinimumNumberOfMutationsPerOffspring = 0,
+                MinimumNumberOfBitInsertionsPerOffspring = 0,
+                MinimumNumberOfBitRemovalsPerOffspring = 0,
+            };
+
+            for (int i = 0; i < 100; i++)
+            {
+                var chromosome = new Chromosome(new BitArray(new bool[] { false, false }), nature);
+                chromosome.Mutate(mutationRates, random);
+                var output = new BitArray(length: 64);
+                chromosome.CopyTo(output, 0, chromosome.Length, 0);
+                if (output[0..3].Equals(new BitArray(new bool[] { false, false, true })))
+                {
+                    return;
+                }
+            }
+
+            static object? mutationRates(Allele allele)
+            {
+                const float length = 2;
+                return allele switch
+                {
+                    Allele.BitInsertionRate => 1f / length,
+                    Allele.BitInsertionRateStdDev => 0f,
+                    Allele.DefaultBitMutationRate => 0f,
+                    Allele.DefaultBitMutationRateStdDev => 0f,
+                    _ => null
+                };
+            }
+
+
+            Assert(false, "No attempt succeeded");
         }
     }
 }

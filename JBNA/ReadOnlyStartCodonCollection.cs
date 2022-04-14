@@ -125,17 +125,15 @@ public class ReadOnlyStartCodonCollection<T> where T : notnull
 
 public class Nature : ReadOnlyStartCodonCollection<CistronSpec>
 {
-    public ulong MaxCistronLength => ushort.MaxValue; // TODO: implement. is not used everywhere yet
-    public UlongValue SubCistronStopCodon => new(0b00_1000_0001, 10);
-
-    // public ICistronInterpreter Pattern1DInterpreter = new CistronInterpreter();
-    public int PatternLengthBitCount => 8;
-    public int FunctionTypeBitCount => 8;
-    public int FunctionRangeBitCount => 8;
+    public ulong MaxCistronLength { get; init; } = ushort.MaxValue;
+    public UlongValue SubCistronStopCodon { get; init; } = new(0b00_1000_0001, 10);
+    public int PatternLengthBitCount { get; init; } = 8;
+    public int FunctionTypeBitCount { get; init; } = 8;
+    public int FunctionRangeBitCount { get; init; } = 8;
     public int FunctionTypeCount => FunctionSpecFactory.FunctionTypeCount;
-    public int MinimumNumberOfMutationsPerOffspring => 1;
-    public int MinimumNumberOfBitInsertionsPerOffspring => 1;
-    public int MinimumNumberOfBitRemovalsPerOffspring => 1;
+    public int MinimumNumberOfMutationsPerOffspring { get; init; } = 1;
+    public int MinimumNumberOfBitInsertionsPerOffspring { get; init; } = 1;
+    public int MinimumNumberOfBitRemovalsPerOffspring { get; init; } = 1;
 
     public FunctionSpecFactory FunctionFactory { get; }
     

@@ -141,14 +141,10 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     {
         Assert(!this.frozen, "Can't mutate frozen chromosome");
 
-        float mutationRate = GetMutationRate(interpret);
-        float mutationRateStdDev = GetMutationRateStdDev(interpret);
+        float mutationRate = GetDefaultBitMutationRate(interpret);
+        float mutationRateStdDev = GetDefaultBitMutationRateStdDev(interpret);
 
-        ulong[] mutationBitIndices = randomlySelectBitIndices(mutationRate, mutationRateStdDev, this.nature.MinimumNumberOfMutationsPerOffspring, random);
-        if (mutationBitIndices.Length != 0)
-        {
-
-        }
+        ulong[] mutationBitIndices = randomlySelectBitIndices(mutationRate, mutationRateStdDev, this.nature.MinimumNumberOfMutationsPerOffspring, endIsPossibleIndex: false, random);
         this.Mutate(mutationBitIndices);
 
         this.ResizeMutate(interpret, random);
@@ -167,7 +163,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         }
     }
 
-    private ulong[] randomlySelectBitIndices(float rate, float rateStdDev, int minimum, Random random)
+    private ulong[] randomlySelectBitIndices(float rate, float rateStdDev, int minimum, bool endIsPossibleIndex, Random random)
     {
         Requires(minimum >= 0);
 
@@ -175,7 +171,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         float mutationCountSi = rateStdDev * this.Length;
         int mutationCount = minimum + Math.Max(0, (int)random.Normal(mutationCountMu, mutationCountSi));
 
-        ulong[] mutationIndices = random.ManySorted(mutationCount, 0, this.Length);
+        ulong[] mutationIndices = random.ManySorted(mutationCount, 0, this.Length + (endIsPossibleIndex ? 1UL : 0));
         return mutationIndices;
     }
     private void ResizeMutate(Func<Allele, object?> interpret, Random random)
@@ -183,14 +179,19 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         Assert(!this.frozen, "Can't resize frozen chromosome");
 
         float insertionRate = GetBitInsertionRate(interpret);
-        ulong[] insertionBitIndices = randomlySelectBitIndices(insertionRate, insertionRate, nature.MinimumNumberOfBitInsertionsPerOffspring, random);
+        float insertionRateStdDev = GetBitInsertionRateStdDev(interpret);
+        ulong[] insertionBitIndices = randomlySelectBitIndices(insertionRate, insertionRateStdDev, nature.MinimumNumberOfBitInsertionsPerOffspring, endIsPossibleIndex: true, random);
         var insertionBits = insertionBitIndices.Select(_ => random.Next(2) == 0).ToArray();
+        
         this.InsertBits(insertionBitIndices, insertionBits);
 
-
-        float removalRate = GetBitInsertionRate(interpret);
-        ulong[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, nature.MinimumNumberOfBitRemovalsPerOffspring, random);
-        this.RemoveBits(insertionBitIndices.Unique().ToArray());
+        float removalRate = GetBitRemovalRate(interpret);
+        float removalRateStdDev = GetBitRemovalRateStdDev(interpret);
+        ulong[] removalBitIndices = randomlySelectBitIndices(removalRate, removalRate, nature.MinimumNumberOfBitRemovalsPerOffspring, endIsPossibleIndex: false, random);
+        if (insertionBitIndices.SequenceEqual(new[] { 2UL }) && insertionBits.SequenceEqual(new[] { true }))
+        {
+        }
+        this.RemoveBits(removalBitIndices.Unique().ToArray());
     }
     private void RemoveBits(ulong[] bitIndices)
     {
@@ -207,32 +208,35 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
 
         this.data.InsertRange(bitIndices, bits);
     }
-    private static float GetMutationRate(Func<Allele, object?> interpret)
+    private static float GetDefaultBitMutationRate(Func<Allele, object?> interpret)
     {
-        object? value = interpret(Allele.DefaultMutationRate);
-        if (value == null)
-            return CistronSpec.DefaultMutationRate;
-        return (float)value;
+        return GetFloatAllele(interpret, Allele.DefaultBitMutationRate, CistronSpec.DefaultMutationRate);
     }
-    private static float GetMutationRateStdDev(Func<Allele, object?> interpret)
+    private static float GetDefaultBitMutationRateStdDev(Func<Allele, object?> interpret)
     {
-        object? value = interpret(Allele.DefaultMutationRateStdDev);
-        if (value == null)
-            return CistronSpec.DefaultMutationRateStdDev;
-        return (float)value;
+        return GetFloatAllele(interpret, Allele.DefaultBitMutationRateStdDev, CistronSpec.DefaultMutationRateStdDev);
     }
     private static float GetBitInsertionRate(Func<Allele, object?> interpret)
     {
-        object? value = interpret(Allele.BitInsertionRate);
-        if (value == null)
-            return CistronSpec.DefaultBitInsertionRate;
-        return (float)value;
+        return GetFloatAllele(interpret, Allele.BitInsertionRate, CistronSpec.DefaultBitInsertionRate);
+    }
+    private static float GetBitInsertionRateStdDev(Func<Allele, object?> interpret)
+    {
+        return GetFloatAllele(interpret, Allele.BitInsertionRateStdDev, CistronSpec.DefaultBitInsertionRateStdDev);
     }
     private static float GetBitRemovalRate(Func<Allele, object?> interpret)
     {
-        object? value = interpret(Allele.BitRemovalRate);
+        return GetFloatAllele(interpret, Allele.BitRemovalRate, CistronSpec.DefaultBitRemovalRate);
+    }
+    private static float GetBitRemovalRateStdDev(Func<Allele, object?> interpret)
+    {
+        return GetFloatAllele(interpret, Allele.BitRemovalRateStdDev, CistronSpec.DefaultBitRemovalRateStdDev);
+    }
+    private static float GetFloatAllele(Func<Allele, object?> interpret, Allele allele, float @default)
+    {
+        object? value = interpret(allele);
         if (value == null)
-            return CistronSpec.DefaultBitRemovalRate;
+            return @default;
         return (float)value;
     }
     private Chromosome Clone()
@@ -241,13 +245,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
     }
 
     [DebuggerHidden]
-    Chromosome IHomologousSet<Chromosome>.Reproduce(Chromosome mate, Func<Allele, object?> interpret, Random random)
-    {
-        // Console.WriteLine("Warning: calling reproduce on potentially haploidal chromosome");
-        // direct calls of this.Reproduce(...) don't need the warning as it's internal
-        // Edit: actually because P is restricted to IHomologousSet<Chromosome>, we always go via here...
-        return this.Reproduce(mate, interpret, random);
-    }
+    Chromosome IHomologousSet<Chromosome>.Reproduce(Chromosome mate, Func<Allele, object?> interpret, Random random) => this.Reproduce(mate, interpret, random);
 }
 
 
