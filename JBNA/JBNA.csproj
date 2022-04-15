@@ -12,13 +12,13 @@
 
 	<ItemGroup>
 		<!-- <Using Include="System.Diagnostics"/> Conflicts Contracts with JBSnorro.Diagnostics.Contracts-->
-		<Using Include="System.Diagnostics"/>
-		<Using Include="System.Collections.Immutable"/>
+		<Using Include="System.Diagnostics" />
+		<Using Include="System.Collections.Immutable" />
 		<Using Include="JBSnorro" />
 		<Using Include="JBSnorro.Collections" />
 		<Using Include="JBSnorro.Diagnostics" />
 		<Using Include="JBSnorro.Extensions" />
-		<Using Include="JBSnorro.Diagnostics.Contract" Static="true"/>
+		<Using Include="JBSnorro.Diagnostics.Contract" Static="true" />
 	</ItemGroup>
   <ItemGroup>
 	  <PackageReference Include="JBSnorro" Version="0.0.13" Condition="'$(Configuration)' != 'Debug'" />
@@ -36,8 +36,5 @@
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		  <PrivateAssets>all</PrivateAssets>
 	  </PackageReference>
-  </ItemGroup>
-
-	<ItemGroup>
   </ItemGroup>
 </Project>

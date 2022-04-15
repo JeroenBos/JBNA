@@ -6,59 +6,57 @@ namespace JBNA;
 class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpreter<Func<int, byte[]>>, ICistronInterpreter<Func<int, short[]>>, ICistronInterpreter<Func<int, Half[]>>
 {
     private readonly Nature nature;
-    private readonly SubCistronInterpreter<object, object, object> subCistronInterpreter;
+    private readonly SubCistronInterpreter<DimensionfulDiscreteFunction, DimensionfulDiscreteFunction, (DimensionfulDiscreteFunction, DimensionfulDiscreteFunction)> subCistronInterpreter;
     public CorrelationSpec(Nature nature)
     {
-        subCistronInterpreter = SubCistronInterpreter.Create(
-            nature, 
-            nature.FunctionFactory.DiscretePatternInterpreter,
-
-
-        var functionSpec = (MinBitCount: 0, MaxBitCount: 1UL);
-        var probabilitySpec = (MinBitCount: 0, MaxBitCount: 1UL);
-
         this.nature = nature;
-        this.subInterpreter = new SubCistronInterpreter(nature, new[] { functionSpec, probabilitySpec });
+        this.subCistronInterpreter = SubCistronInterpreter.Create(
+            nature,
+            nature.FunctionFactory.DiscretePatternInterpreter,
+            nature.FunctionFactory.OneDFunctionInterpreter
+        );
     }
 
     // the understanding here is that the cistron does not start with the type of function that it is
     // that is up to the parent cistron or allele to determine (preliminary design decision)
-    private ICistronInterpreter<Func<int, float>> get1DProbabilityFunction(BitArrayReadOnlySegment subcistron)
+    private ICistronInterpreter<Func<int, float>> get1DProbabilityFunction(BitReader subcistronReader)
     {
         throw new NotImplementedException();
     }
-    private ICistronInterpreter<Func<int, int, float>> get2DProbabilityFunction(BitArrayReadOnlySegment subcistron)
+    private ICistronInterpreter<Func<int, int, float>> get2DProbabilityFunction(BitReader subcistronReader)
     {
         throw new NotImplementedException();
     }
-    private ICistronInterpreter<Func<int, int, int, float>> get3DProbabilityFunction(BitArrayReadOnlySegment subcistron)
+    private ICistronInterpreter<Func<int, int, int, float>> get3DProbabilityFunction(BitReader subcistronReader)
     {
         throw new NotImplementedException();
     }
     public ulong MinBitCount => 8;
     public ulong MaxBitCount => this.nature.MaxCistronLength;
 
-    Func<int, bool[]> ICistronInterpreter<Func<int, bool[]>>.Interpret(BitArrayReadOnlySegment cistron)
+    Func<int, bool[]> ICistronInterpreter<Func<int, bool[]>>.Interpret(BitReader cistronReader)
     {
-        var generator = (IGenerator1D)this.Interpret(cistron);
+        var results = this.subCistronInterpreter.Interpret(cistronReader);
+
+        var generator = (IGenerator1D)this.Interpret(cistronReader);
         return generator.CreateBooleans;
     }
-    Func<int, byte[]> ICistronInterpreter<Func<int, byte[]>>.Interpret(BitArrayReadOnlySegment cistron)
+    Func<int, byte[]> ICistronInterpreter<Func<int, byte[]>>.Interpret(BitReader cistronReader)
     {
-        var generator = (IGenerator1D)this.Interpret(cistron);
+        var generator = (IGenerator1D)this.Interpret(cistronReader);
         return generator.CreateBytes;
     }
-    Func<int, short[]> ICistronInterpreter<Func<int, short[]>>.Interpret(BitArrayReadOnlySegment cistron)
+    Func<int, short[]> ICistronInterpreter<Func<int, short[]>>.Interpret(BitReader cistronReader)
     {
-        var generator = (IGenerator1D)this.Interpret(cistron);
+        var generator = (IGenerator1D)this.Interpret(cistronReader);
         return generator.CreateShorts;
     }
-    Func<int, Half[]> ICistronInterpreter<Func<int, Half[]>>.Interpret(BitArrayReadOnlySegment cistron)
+    Func<int, Half[]> ICistronInterpreter<Func<int, Half[]>>.Interpret(BitReader cistronReader)
     {
-        var generator = (IGenerator1D)this.Interpret(cistron);
+        var generator = (IGenerator1D)this.Interpret(cistronReader);
         return generator.CreateHalfs;
     }
-    private Generator Interpret(BitArrayReadOnlySegment cistron)
+    private Generator Interpret(BitReader cistronReader)
     {
         // let's say the cistrons represent a list of chunks, each chunk consisting of
         // - an index where the pattern starts
@@ -91,10 +89,10 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
 
         // The stopCodon should probably be different from the real cistron-stopping codon
 
-        if (cistron.Length > this.MaxBitCount)
+        if (cistronReader.Length > this.MaxBitCount)
             throw new GenomeInviableException("Too long pattern");
 
-        var subcistrons = this.subInterpreter.Interpret(cistron);
+        var subcistrons = this.subCistronInterpreter.Interpret(cistronReader);
         var probabilityFunctionCistron = subcistrons[0];
         var patternCistron = subcistrons[1];
 
@@ -153,7 +151,7 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
             {
                 if (_probabilityFunction == null)
                 {
-                    _probabilityFunction = this.Nature.FunctionFactory.Interpret1DFunction(this.ProbabilityFunctionCistron).Map(@short => (@short & 255) > 127);
+                    _probabilityFunction = this.Nature.FunctionFactory.Interpret1DFunction(this.ProbabilityFunctionCistron.ToBitReader()).Map(@short => (@short & 255) > 127);
                 }
                 return (DimensionfulFunction<bool>)_probabilityFunction;
             }
@@ -168,7 +166,7 @@ class CorrelationSpec : ICistronInterpreter<Func<int, bool[]>>, ICistronInterpre
             {
                 if (_pattern == null)
                 {
-                    var  x = this.Nature.FunctionFactory.Interpret1DPattern(this.PatternCistron);
+                    var  x = this.Nature.FunctionFactory.Interpret1DPattern(this.PatternCistron.ToBitReader());
                     _pattern = x;
                 }
                 return (DimensionfulDiscreteFunction)_pattern;

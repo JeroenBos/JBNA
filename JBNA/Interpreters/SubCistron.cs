@@ -2,7 +2,8 @@
 
 /// <summary>
 /// Splits a Cistron up into multiple cistrons, assuming they're separated by Nature.StopCodon.
-/// These subcistrons don't have start codons (keys) to signify them; they are ordered.
+/// These subcistrons don't have start codons (keys) to signify them; they are ordered. 
+/// The last substopcodon is always implicit.
 /// </summary>
 public class SubCistronInterpreter : ICistronInterpreter<ImmutableArray<BitArrayReadOnlySegment>>
 {
@@ -34,31 +35,27 @@ public class SubCistronInterpreter : ICistronInterpreter<ImmutableArray<BitArray
         this.nature = nature;
         this.SubInterpreters = subInterpreters;
         this.MinCistronCount = minCistronCount;
-        (this.MinBitCount, this.MaxBitCount) = ComputeMinMaxBitCount(subInterpreters);
-
-
-        static (ulong, ulong) ComputeMinMaxBitCount(IEnumerable<ICistronInterpreter> subInterpreters)
-        {
-            var min = subInterpreters.Sum(spec => (long)spec.MinBitCount);
-            var max = subInterpreters.Sum(spec => (long)spec.MaxBitCount);
-            return ((ulong)min, (ulong)max);
-        }
+        this.MinBitCount = subInterpreters.Sum(spec => spec.MinBitCount) + (ulong)((minCistronCount - 1) * nature.SubCistronStopCodon.Length);
+        this.MaxBitCount = subInterpreters.Sum(spec => spec.MaxBitCount) + (ulong)((subInterpreters.Length - 1) * nature.SubCistronStopCodon.Length);
     }
 
-    protected List<BitArrayReadOnlySegment> Split(BitArrayReadOnlySegment cistron)
+    protected List<BitArrayReadOnlySegment> Split(BitReader cistronReader)
     {
-        var result = impl(cistron, this.nature).ToList();
+        var result = impl(cistronReader, this.nature).ToList();
         if (result.Count < this.MinCistronCount)
             throw new GenomeInviableException($"Not enough subcistrons in cistron ({result.Count} < {this.MinCistronCount})");
         return result;
 
 
-        static IEnumerable<BitArrayReadOnlySegment> impl(BitArrayReadOnlySegment cistron, Nature nature)
+        static IEnumerable<BitArrayReadOnlySegment> impl(BitReader cistronReader, Nature nature)
         {
+            BitArrayReadOnlySegment cistron = cistronReader.RemainingSegment;
+
             int count = 0;
             ulong startBitIndex = 0;
             while (true)
             {
+
                 long stopIndex = cistron.IndexOf(nature.SubCistronStopCodon.Value, nature.SubCistronStopCodon.Length, startBitIndex);
                 if (stopIndex == -1)
                 {
@@ -76,13 +73,13 @@ public class SubCistronInterpreter : ICistronInterpreter<ImmutableArray<BitArray
             }
         }
     }
-    ImmutableArray<BitArrayReadOnlySegment> ICistronInterpreter<ImmutableArray<BitArrayReadOnlySegment>>.Interpret(BitArrayReadOnlySegment cistron)
+    ImmutableArray<BitArrayReadOnlySegment> ICistronInterpreter<ImmutableArray<BitArrayReadOnlySegment>>.Interpret(BitReader cistronReader)
     {
-        return Split(cistron).ToImmutableArray();
+        return Split(cistronReader).ToImmutableArray();
     }
 
     [DebuggerHidden]
-    public static SubCistronInterpreter<T, U, (T, U)> Create<T, U, TCombined>(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter)
+    public static SubCistronInterpreter<T, U, (T, U)> Create<T, U>(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter)
     {
         return Create(nature, tInterpreter, uInterpreter, (t, u) => (t, u));
     }
@@ -93,8 +90,8 @@ public class SubCistronInterpreter : ICistronInterpreter<ImmutableArray<BitArray
     }
 }
 
-
-public class SubCistronInterpreter<T, U, TCombined> : SubCistronInterpreter
+/// <inheritdoc />
+public class SubCistronInterpreter<T, U, TCombined> : SubCistronInterpreter, ICistronInterpreter<TCombined>
 {
     private readonly Func<T, U, TCombined> combiner;
 
@@ -104,31 +101,31 @@ public class SubCistronInterpreter<T, U, TCombined> : SubCistronInterpreter
         this.combiner = combiner;
     }
 
-    public TCombined Interpret(BitArrayReadOnlySegment cistron)
+    public TCombined Interpret(BitReader cistronReader)
     {
-        var subcistrons = base.Split(cistron);
-        var t = ((ICistronInterpreter<T>)this.SubInterpreters[0]).Interpret(subcistrons[0]);
-        var u = ((ICistronInterpreter<U>)this.SubInterpreters[1]).Interpret(subcistrons[1]);
+        var subcistrons = base.Split(cistronReader);
+        var t = ((ICistronInterpreter<T>)this.SubInterpreters[0]).Interpret(subcistrons[0].ToBitReader());
+        var u = ((ICistronInterpreter<U>)this.SubInterpreters[1]).Interpret(subcistrons[1].ToBitReader());
         var result = combiner(t, u);
         return result;
     }
 }
-public class SubCistronInterpreter<T, U, V, TCombined> : SubCistronInterpreter
+public class SubCistronInterpreter<T, U, V, TCombined> : SubCistronInterpreter, ICistronInterpreter<TCombined>
 {
     private readonly Func<T, U, V, TCombined> combiner;
 
     public SubCistronInterpreter(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter, ICistronInterpreter<V> vInterpreter, Func<T, U, V, TCombined> combiner)
-        : base(nature, tInterpreter, uInterpreter)
+        : base(nature, tInterpreter, uInterpreter, vInterpreter)
     {
         this.combiner = combiner;
     }
 
-    public TCombined Interpret(BitArrayReadOnlySegment cistron)
+    public TCombined Interpret(BitReader cistronReader)
     {
-        var subcistrons = base.Split(cistron);
-        var t = ((ICistronInterpreter<T>)this.SubInterpreters[0]).Interpret(subcistrons[0]);
-        var u = ((ICistronInterpreter<U>)this.SubInterpreters[1]).Interpret(subcistrons[1]);
-        var v = ((ICistronInterpreter<V>)this.SubInterpreters[2]).Interpret(subcistrons[2]);
+        var subcistrons = base.Split(cistronReader);
+        var t = ((ICistronInterpreter<T>)this.SubInterpreters[0]).Interpret(subcistrons[0].ToBitReader());
+        var u = ((ICistronInterpreter<U>)this.SubInterpreters[1]).Interpret(subcistrons[1].ToBitReader());
+        var v = ((ICistronInterpreter<V>)this.SubInterpreters[2]).Interpret(subcistrons[2].ToBitReader());
         var result = combiner(t, u, v);
         return result;
     }

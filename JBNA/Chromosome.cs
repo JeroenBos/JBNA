@@ -49,7 +49,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
             yield return (cistronSpec, () =>
             {
                 CheckLength(range, this.data.Length, cistronSpec.Interpreter, this.nature);
-                return cistronSpec.Interpreter.Interpret(this.data.SelectSegment(range));
+                return cistronSpec.Interpreter.Interpret(this.data.SelectReader(range));
             }
             );
 

@@ -1,9 +1,4 @@
-﻿using JBSnorro.Collections;
-using static JBSnorro.Diagnostics.Contract;
-using System.Linq;
-using System.Diagnostics;
-
-namespace JBNA;
+﻿namespace JBNA;
 
 public static class NumberSpec
 {
@@ -58,10 +53,9 @@ public static class NumberSpec
             //return result;
         }
 
-        public byte Interpret(BitArrayReadOnlySegment data)
+        public byte Interpret(BitReader cistronReader)
         {
-            Assert(data.Length != 0);
-            var bits = data.ToBitReader().ReadByte();
+            var bits = cistronReader.ReadByte();
             var result = proximityOrder[bits];
             return result;
         }
@@ -74,7 +68,7 @@ public static class NumberSpec
         //    return new byte[] { startCodon, value, stopCodon };
         //}
 
-        object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
+        object ICistronInterpreter.Interpret(BitReader cistron) => Interpret(cistron);
     }
     internal class UniformFloatInterpreter : ICistronInterpreter<float>
     {
@@ -90,7 +84,7 @@ public static class NumberSpec
             this.Min = min;
             this.Max = max;
         }
-        public float Interpret(BitArrayReadOnlySegment cistron)
+        public float Interpret(BitReader cistron)
         {
             Assert(cistron.Length == 8);
             byte b = byteInterpreter.Interpret(cistron);
@@ -108,7 +102,7 @@ public static class NumberSpec
         //    return new byte[] { startCodon, encoded, stopCodon };
         //}
 
-        [DebuggerHidden] object ICistronInterpreter.Interpret(BitArrayReadOnlySegment cistron) => Interpret(cistron);
+        [DebuggerHidden] object ICistronInterpreter.Interpret(BitReader cistronReader) => Interpret(cistronReader);
     }
 }
 
@@ -126,3 +120,39 @@ public static class NumberSpec
 
 //}
 
+internal class BooleanInterpreter : ICistronInterpreter<bool>
+{
+    public static BooleanInterpreter Instance { get; } = new BooleanInterpreter();
+
+
+    public ulong MinBitCount => 1;
+    public ulong MaxBitCount => 1;
+    public bool Interpret(BitReader cistronReader)
+    {
+        return cistronReader.ReadBit();
+    }
+
+    private BooleanInterpreter() { }
+}
+internal class Int32Interpreter : ICistronInterpreter<int>
+{
+    private static readonly Int32Interpreter[] instances = Enumerable.Range(0, 32).Select(i => new Int32Interpreter((ulong)i)).ToArray();
+    public static Int32Interpreter Create(int bitCount)
+    {
+        Requires<ArgumentException>(0 < bitCount && bitCount <= 32);
+
+        return instances[bitCount];
+    }
+
+    public ulong MinBitCount { get; }
+    public ulong MaxBitCount => MinBitCount;
+    public int Interpret(BitReader cistronReader)
+    {
+        return cistronReader.ReadInt32((int)this.MinBitCount);
+    }
+
+    private Int32Interpreter(ulong bitCount)
+    {
+        MinBitCount = bitCount;
+    }
+}

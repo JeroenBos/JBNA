@@ -3,7 +3,7 @@ namespace JBNA;
 public delegate TResult RangelessDelegate<T, TResult>(T input, T min, T max);
 public interface IRangelessFunctionSpec<T, TResult> : ICistronInterpreter<Func<T, T, T, TResult>>
 {
-    new RangelessDelegate<T, TResult> Interpret(BitArrayReadOnlySegment cistron);
+    new RangelessDelegate<T, TResult> Interpret(BitReader cistron);
 }
 
 
@@ -58,12 +58,12 @@ class RangedFunctionSpec<T, TIntermediate, TResult> : ICistronInterpreter<Func<T
         this.max = max;
         this.map = map;
     }
-    public Func<T, TResult> Interpret(BitArrayReadOnlySegment cistron)
+    public Func<T, TResult> Interpret(BitReader cistronReader)
     {
         return f;
         TResult f(T input)
         {
-            RangelessDelegate<TIntermediate, TResult> g = this.rangelessFunctionSpec.Interpret(cistron);
+            RangelessDelegate<TIntermediate, TResult> g = this.rangelessFunctionSpec.Interpret(cistronReader);
             var mappedInput = this.map(input, this.min, this.max);
             var result = g(mappedInput, this.min, this.max);
             return result;
@@ -85,7 +85,7 @@ class RangelessFunctionSpec<T, TIntermediate, TResult> : IRangelessFunctionSpec<
         this.rangedFunctionSpec = rangedFunctionSpec;
         this.mapToRange = mapToRange;
     }
-    public RangelessDelegate<T, TResult> Interpret(BitArrayReadOnlySegment cistron)
+    public RangelessDelegate<T, TResult> Interpret(BitReader cistronReader)
     {
         // we assume the function kind is already known. That is, this is a particular kind of function,
         // as defined by the rangedFunctionSpec.
@@ -96,15 +96,15 @@ class RangelessFunctionSpec<T, TIntermediate, TResult> : IRangelessFunctionSpec<
         TResult f(T input, T min, T max)
         {
             var inRange = this.mapToRange(input, min, max);
-            Func<TIntermediate, TResult> g = this.rangedFunctionSpec.Interpret(cistron);
+            Func<TIntermediate, TResult> g = this.rangedFunctionSpec.Interpret(cistronReader);
             var result = g(inRange);
             return result;
         }
     }
 
-    Func<T, T, T, TResult> ICistronInterpreter<Func<T, T, T, TResult>>.Interpret(BitArrayReadOnlySegment cistron)
+    Func<T, T, T, TResult> ICistronInterpreter<Func<T, T, T, TResult>>.Interpret(BitReader cistronReader)
     {
-        return new Func<T, T, T, TResult>(Interpret(cistron));
+        return new Func<T, T, T, TResult>(Interpret(cistronReader));
     }
 }
 
@@ -154,9 +154,9 @@ public static class FunctionalCistronExtensions
             this.map = map ?? throw new ArgumentNullException(nameof(map));
         }
 
-        public Func<T, TResult> Interpret(BitArrayReadOnlySegment cistron)
+        public Func<T, TResult> Interpret(BitReader cistronReader)
         {
-            var baseFunction = baseInterpreter.Interpret(cistron);
+            var baseFunction = baseInterpreter.Interpret(cistronReader);
             return x => map(baseFunction(x));
         }
 
@@ -174,12 +174,12 @@ public static class FunctionalCistronExtensions
         public ComposedInterpreter(ICistronInterpreter<Func<TIntermediate, TResult>> interpreter, Func<T, TIntermediate> innerFunction)
         {
             this.baseInterpreter = interpreter ?? throw new ArgumentNullException(nameof(interpreter));
-            this.innerFunction  = innerFunction ?? throw new ArgumentNullException(nameof(innerFunction));
+            this.innerFunction = innerFunction ?? throw new ArgumentNullException(nameof(innerFunction));
         }
 
-        public Func<T, TResult> Interpret(BitArrayReadOnlySegment cistron)
+        public Func<T, TResult> Interpret(BitReader cistronReader)
         {
-            var baseFunction = baseInterpreter.Interpret(cistron);
+            var baseFunction = baseInterpreter.Interpret(cistronReader);
             return x => baseFunction(innerFunction(x));
         }
 

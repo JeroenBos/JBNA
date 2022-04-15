@@ -33,8 +33,16 @@ public interface ICistronInterpreter
     /// where similar input corresponding to similar output, is a approximately continuous fashion.
     /// </summary>
     /// <returns> A series of bit representing a cistron. Specifically it does not include the start and stop codons. </returns>
-    object Interpret(BitArrayReadOnlySegment cistron) => ((ICistronInterpreter<object>)this).Interpret(cistron); // only works for reference types
+    // I'm starting to think this shouldn't exist, and that all callers of this function should just require a ICistronInterpreter<object> instead.... although.... ValueTypes??
+    object Interpret(BitReader cistronReader) => ((ICistronInterpreter<object>)this).Interpret(cistronReader); // only works for reference types
+    /// <summary>
+    /// This is the absolute minimum number of bits required for any interpretation to succeed.
+    /// It's unclear to be how to express the minimum number of bits required for all interpretations to succeed (or to at least not fail on insufficient bits).
+    /// </summary>
     ulong MinBitCount { get; }
+    /// <summary>
+    /// This is the maximum number of bits this interpreter could ever read. If more are given, they'll be ignored.
+    /// </summary>
     ulong MaxBitCount { get; }
     BitArrayReadOnlySegment? InitialEncodedValue => default;
     bool ImplicitStopCodonAllowed => MaxBitCount > int.MaxValue / 2;
@@ -52,5 +60,5 @@ public interface IMultiCistronMerger
 public interface ICistronInterpreter<out T> : ICistronInterpreter
 {
      /// <inheritdoc/>
-     new T Interpret(BitArrayReadOnlySegment cistron);
+     new T Interpret(BitReader cistronReader);
 }

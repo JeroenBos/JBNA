@@ -61,7 +61,7 @@ internal class RandomGeneration
                 var encodedJunkRatio = interpreter.InitialEncodedValue;
                 if (encodedJunkRatio != null)
                 {
-                    float junkRatio = interpreter.Interpret(encodedJunkRatio);
+                    float junkRatio = interpreter.Interpret(encodedJunkRatio.ToBitReader());
                     var totalLength = Math.Max(nonJunkLength, (ulong)(nonJunkLength / (1 - junkRatio)));
                     var junkLength = (long)(totalLength - nonJunkLength);
                     return junkLength;

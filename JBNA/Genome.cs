@@ -2,6 +2,14 @@
 
 public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
 {
+    private Dictionary<CistronSpec, int> SpecIndices => CodonCollection.SpecIndices;
+    public IReadOnlyCollection<CistronSpec> Specs => SpecIndices.Keys;
+    public IReadOnlyList<TPloidality> Chromosomes { get; }
+    internal Nature CodonCollection { get; }
+    private object?[]? interpretations;
+    private IReadOnlyList<TCodon> StartCodons => CodonCollection.StartCodons;  // for serialiation
+
+
     public Genome(IReadOnlyList<TPloidality> chromosomes, IEnumerable<CistronSpec> specs, Random random)
     {
         this.Chromosomes = chromosomes;
@@ -20,12 +28,7 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
         this.CodonCollection = nature;
         this.Chromosomes = chromosomes;
     }
-    private Dictionary<CistronSpec, int> SpecIndices => CodonCollection.SpecIndices;
-    public IReadOnlyCollection<CistronSpec> Specs => SpecIndices.Keys;
-    public IReadOnlyList<TPloidality> Chromosomes { get; }
-    internal Nature CodonCollection { get; }
-    private object?[]? interpretations;
-    private IReadOnlyList<TCodon> StartCodons => CodonCollection.StartCodons;  // for serialiation
+
     /// <summary>
     /// Gets the interpreters of the cistrons in the order of the specs.
     /// </summary>
