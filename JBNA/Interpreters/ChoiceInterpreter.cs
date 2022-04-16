@@ -11,9 +11,8 @@ public static class ChoiceCistronInterpreter
         return new ChoiceCistronInterpreter<T>(options.ToImmutableArray(), choose);
     }
 }
-sealed class ChoiceCistronInterpreter<T> : ICistronInterpreter<T>
+internal sealed class ChoiceCistronInterpreter<T> : ICistronInterpreter<T>
 {
-
     private readonly ImmutableArray<ICistronInterpreter<T>> options;
     private readonly Func<BitReader, int> choose;
     public ulong MinBitCount { get; }

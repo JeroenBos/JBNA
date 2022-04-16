@@ -120,9 +120,38 @@ public static class NumberSpec
 
 //}
 
+internal static class ConstantInterpreter
+{
+    [DebuggerHidden]
+    public static ConstantInterpreter<T> Create<T>(T value)
+    {
+        return new ConstantInterpreter<T>(value);
+    }
+    [DebuggerHidden]
+    public static ConstantInterpreter<T> CreateConstantInterpreter<T>(this T value) 
+    {
+        return Create(value);
+    }
+}
+internal class ConstantInterpreter<T> : ICistronInterpreter<T>
+{
+    private readonly T value;
+
+    public ConstantInterpreter(T value)
+    {
+        this.value = value;
+    }
+
+    public ulong MinBitCount => 0;
+    public ulong MaxBitCount => 0;
+    public T Interpret(BitReader cistronReader)
+    {
+        return value;
+    }
+}
 internal class BooleanInterpreter : ICistronInterpreter<bool>
 {
-    public static BooleanInterpreter Instance { get; } = new BooleanInterpreter();
+    public static ICistronInterpreter<bool> Instance { get; } = new BooleanInterpreter();
 
 
     public ulong MinBitCount => 1;
@@ -137,7 +166,7 @@ internal class BooleanInterpreter : ICistronInterpreter<bool>
 internal class Int32Interpreter : ICistronInterpreter<int>
 {
     private static readonly Int32Interpreter[] instances = Enumerable.Range(0, 32).Select(i => new Int32Interpreter((ulong)i)).ToArray();
-    public static Int32Interpreter Create(int bitCount)
+    public static ICistronInterpreter<int> Create(int bitCount)
     {
         Requires<ArgumentException>(0 < bitCount && bitCount <= 32);
 

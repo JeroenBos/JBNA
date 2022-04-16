@@ -2,7 +2,7 @@
 using Xunit;
 
 // new FloodFillTests().TestFloodfillF();
-new IntegrationTests().Test_Function_Converges();
+new IntegrationTests().CanApproximateSineWave();
 Console.WriteLine("Done");
 
 namespace JBNA.Tests
@@ -14,9 +14,8 @@ namespace JBNA.Tests
         {
             int populationSize = 100;
             int maxTime = 11;
-            var random = new Random(1);
-            var specs = new[] { new CistronSpec(Allele.CustomRangeStart, interpreter: NumberSpec.CreateUniformFloatFactory(0, 10)) };
-            var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: false);
+            var specs = new CistronSpec.Builder[] { new CistronSpec(Allele.CustomRangeStart, interpreter: NumberSpec.CreateUniformFloatFactory(0, 10)) };
+            var nature = RandomGeneration.CreateRandomHaploidNature(specs, new Random(1), add_defaults: false);
 
             float scoreFunction(object?[] cistrons)
             {
@@ -26,10 +25,10 @@ namespace JBNA.Tests
                 return 10f - (float)cistrons[0]!;
             }
 
-            var evolution = new Evolution<Chromosome>(nature, RandomGeneration.CreateRandomHaploid, scoreFunction, populationSize, random: random);
-            var finalScore = evolution.Evolve(maxTime);
+            var evolution = new Evolution<Chromosome>(nature, RandomGeneration.CreateRandomHaploid, scoreFunction, populationSize);
+            var scores = evolution.Evolve(maxTime);
 
-            Assert(finalScore[0] > 9.5);
+            Assert(scores[^1] > 9.5);
         }
 
         [Fact]
@@ -37,10 +36,8 @@ namespace JBNA.Tests
         {
             int populationSize = 100;
             int maxTime = 10;
-            var random = new Random(1);
-            var specs = new[] { new CistronSpec(Allele.CustomRangeStart, interpreter: NumberSpec.CreateUniformFloatFactory(0, 10)) };
-            var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: true);
-            var genome = RandomGeneration.CreateRandomHaploid(nature, random);
+            var specs = new CistronSpec.Builder[] { new CistronSpec(Allele.CustomRangeStart, interpreter: NumberSpec.CreateUniformFloatFactory(0, 10)) };
+            var nature = RandomGeneration.CreateRandomHaploidNature(specs, new Random(1), add_defaults: true);
 
             float scoreFunction(object?[] cistrons)
             {
@@ -50,10 +47,10 @@ namespace JBNA.Tests
                 return 10f - (float)cistrons[0]!;
             }
 
-            var evolution = new Evolution<Chromosome>(nature, RandomGeneration.CreateRandomHaploid, scoreFunction, populationSize, random: random);
-            var finalScore = evolution.Evolve(maxTime);
+            var evolution = new Evolution<Chromosome>(nature, RandomGeneration.CreateRandomHaploid, scoreFunction, populationSize);
+            var scores = evolution.Evolve(maxTime);
 
-            Assert(finalScore[0] > 9.5);
+            Assert(scores[^1] > 9.5);
         }
 
         [Fact]
@@ -61,23 +58,21 @@ namespace JBNA.Tests
         {
             int populationSize = 10;
             int maxTime = 20;
-            var random = new Random(1);
-            var specs = new[] { new CistronSpec(Allele.CustomRangeStart, interpreter: FunctionSpecFactory.FourierFunctionInterpreter) };
-            var nature = RandomGeneration.CreateRandomHaploidNature(specs, random, add_defaults: false);
-            var genome = RandomGeneration.CreateRandomHaploid(nature, random);
+            var specs = new CistronSpec.Builder[] { new CistronSpec.Builder(Allele.CustomRangeStart, GetInterpreter: (Nature nature) => nature.FunctionFactory.FourierFunctionInterpreter) };
+            var nature = RandomGeneration.CreateRandomHaploidNature(specs, new Random(1), add_defaults: false);
 
             var samplingPoints = Enumerable.Range(0, 10).Select(i => (float)(i / (2 * Math.PI))).ToList();
             Func<float, float> realFunction = f => (float)Math.Sin(f);
             float scoreFunction(object?[] interpretedCistrons)
             {
                 Assert(interpretedCistrons.Length == 1);
-                Assert(interpretedCistrons[0] is DimensionfulContinuousFunction);
-                var f = (DimensionfulContinuousFunction)interpretedCistrons[0]!;
+                Assert(interpretedCistrons[0] is IDimensionfulContinuousFunction);
+                var f = (IDimensionfulContinuousFunction)interpretedCistrons[0]!;
 
                 float difference = 0;
                 foreach (var point in samplingPoints)
                 {
-                    var prediction = f(new OneDimensionalContinuousQuantity(point, Length: 1));
+                    var prediction = f.Invoke(new OneDimensionalContinuousQuantity(point, Length: 1));
                     var real = realFunction(point);
                     var diff = Math.Abs(prediction - real);
                     difference += diff;
@@ -85,15 +80,15 @@ namespace JBNA.Tests
                 return 100 - difference; // because higher is better
             }
 
-            var evolution = new Evolution<Chromosome>(nature, RandomGeneration.CreateRandomHaploid, scoreFunction, populationSize, random: random);
-            var finalScore = evolution.Evolve(maxTime);
+            var evolution = new Evolution<Chromosome>(nature, RandomGeneration.CreateRandomHaploid, scoreFunction, populationSize);
+            var scores = evolution.Evolve(maxTime);
 
-            Assert(finalScore[0] > 9.5);
+            Assert(scores[^1] > 9.5);
         }
         [Fact]
         public void Test_Bits_Can_Be_Inserted_at_the_end_of_a_chromosome()
         {
-            var random = new Random();
+            var random = new Random(1);
             var nature = new Nature(Array.Empty<CistronSpec>(), random)
             {
                 MinimumNumberOfMutationsPerOffspring = 0,
@@ -128,6 +123,53 @@ namespace JBNA.Tests
 
 
             Assert(false, "No attempt succeeded");
+        }
+
+        [Fact]
+        public void CanApproximateSineWave()
+        {
+            Func<double, double> realFunction = Math.Sin;
+            const int Length = 100;
+            const int maxTime = 10000;
+            const int populationSize = 100;
+
+
+            var spec = new CistronSpec.Builder(Allele.CustomRangeStart, _ => HistogramFunction.ScalingFunctionInterpreter);
+            var nature = RandomGeneration.CreateRandomHaploidNature(spec.ToSingletonList(), new Random(1), add_defaults: false);
+            float scoreFunction(IDimensionfulDiscreteFunction f)
+            {
+                var samplingPoints = Enumerable.Range(0, Length);
+                float difference = 0;
+                foreach (var point in samplingPoints)
+                {
+                    var prediction = f.Invoke(new OneDimensionalDiscreteQuantity(point, Length));
+                    var real = (float)realFunction(point);
+                    var diff = Math.Abs(prediction - real);
+                    difference += diff;
+                }
+                var score = -difference; // because higher is better
+                return score;
+            }
+            var evolution = new Evolution<Chromosome>(nature, RandomGeneration.CreateRandomHaploid, CastScoreFunction<IDimensionfulDiscreteFunction>(scoreFunction), populationSize);
+
+            var scores = evolution.Evolve(maxTime);
+            var finalScore = scores[^1];
+            Assert(finalScore < 0, "Something is wrong");
+            Assert(finalScore > -10, "It did not perform well");
+        }
+
+        static Func<object?[], float> CastScoreFunction<T>(Func<T, float> singleElementScoreFunction)
+        {
+            return wrappedScoreFunction;
+            float wrappedScoreFunction(object?[] interpretedCistrons)
+            {
+
+                Assert(interpretedCistrons.Length == 1);
+                Assert(interpretedCistrons[0] is T);
+                var t = (T)interpretedCistrons[0]!;
+
+                return singleElementScoreFunction(t);
+            }
         }
     }
 }

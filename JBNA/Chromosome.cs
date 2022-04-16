@@ -3,7 +3,7 @@ namespace JBNA;
 
 public sealed class Chromosome : IHomologousSet<Chromosome>
 {
-    internal ulong Length => this.data.Length;
+    public ulong Length => this.data.Length;
     internal readonly Nature nature;
     private readonly BitArray data;
     private bool frozen = false;
@@ -25,7 +25,7 @@ public sealed class Chromosome : IHomologousSet<Chromosome>
         {
             return this.nature
                        .FindAllCistrons(this.data)
-                       .Select(p => p.Key.Allele);
+                       .Select(p => p.Spec.Allele);
         }
     }
     int IHomologousSet<Chromosome>.Count => 1;
@@ -249,6 +249,7 @@ public sealed class DiploidChromosome : IHomologousSet<DiploidChromosome>
     private Nature codonCollection => A.nature;
 
     int IHomologousSet<DiploidChromosome>.Count => 2;
+
     public DiploidChromosome(Chromosome a, Chromosome b)
     {
         Assert(ReferenceEquals(a.nature, b.nature));
@@ -287,4 +288,5 @@ public sealed class DiploidChromosome : IHomologousSet<DiploidChromosome>
         Console.WriteLine("Warning: reproducing diploidal with itself");
         return ((IHomologousSet<DiploidChromosome>)this).Reproduce(this, interpret, random);
     }
+    ulong IHomologousSet<DiploidChromosome>.Length => Math.Max(A.Length, B.Length);
 }

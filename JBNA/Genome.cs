@@ -2,30 +2,30 @@
 
 public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
 {
-    private Dictionary<CistronSpec, int> SpecIndices => CodonCollection.SpecIndices;
+    private Dictionary<CistronSpec, int> SpecIndices => Nature.Codons.SpecIndices;
     public IReadOnlyCollection<CistronSpec> Specs => SpecIndices.Keys;
     public IReadOnlyList<TPloidality> Chromosomes { get; }
-    internal Nature CodonCollection { get; }
+    internal Nature Nature { get; }
     private object?[]? interpretations;
-    private IReadOnlyList<TCodon> StartCodons => CodonCollection.StartCodons;  // for serialiation
+    private IReadOnlyList<TCodon> StartCodons => Nature.Codons.StartCodons;  // for serialiation
 
 
-    public Genome(IReadOnlyList<TPloidality> chromosomes, IEnumerable<CistronSpec> specs, Random random)
+    public Genome(IReadOnlyList<TPloidality> chromosomes, IReadOnlyCollection<CistronSpec.Builder> specs, Random random)
     {
         this.Chromosomes = chromosomes;
-        this.CodonCollection = new Nature(specs.ToList(), random);
+        this.Nature = new Nature(specs, random);
     }
     /// <summary>
     /// Creates the CodonCollection before the chromosomes need to be created; useful for random chromosome generation.
     /// </summary>
     internal Genome(Nature nature, out List<TPloidality> chromosomes)
     {
-        this.CodonCollection = nature;
+        this.Nature = nature;
         this.Chromosomes = chromosomes = new List<TPloidality>();
     }
     private Genome(Nature nature, List<TPloidality> chromosomes)
     {
-        this.CodonCollection = nature;
+        this.Nature = nature;
         this.Chromosomes = chromosomes;
     }
 
@@ -63,7 +63,7 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
     /// <summary>
     /// Gets the values of the cistrons in the order of the specs.
     /// </summary>
-    [DebuggerHidden]
+    //[DebuggerHidden]
     public object?[] Interpret()
     {
         if (this.interpretations == null)
@@ -81,16 +81,16 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
     public Genome<TPloidality> Reproduce(Random random)
     {
         var chromosomes = this.Chromosomes.Select(c => c.Reproduce(this.Interpret, random)).ToList();
-        return new Genome<TPloidality>(this.CodonCollection, chromosomes);
+        return new Genome<TPloidality>(this.Nature, chromosomes);
     }
     public Genome<TPloidality> Reproduce(Genome<TPloidality> mate, Random random)
     {
         //Assert(ReferenceEquals(this.SpecIndices, mate.SpecIndices));
         Assert(ReferenceEquals(this.StartCodons, mate.StartCodons));
-        Assert(ReferenceEquals(this.CodonCollection, mate.CodonCollection));
+        Assert(ReferenceEquals(this.Nature, mate.Nature));
 
         var chromosomes = Enumerable.Zip(this.Chromosomes, mate.Chromosomes).Select(c => c.First.Reproduce(c.Second, this.Interpret, random)).ToList();
-        return new Genome<TPloidality>(this.CodonCollection, chromosomes);
+        return new Genome<TPloidality>(this.Nature, chromosomes);
     }
     internal object? Interpret(Allele allele)
     {

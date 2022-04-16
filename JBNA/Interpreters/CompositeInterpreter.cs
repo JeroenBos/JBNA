@@ -35,7 +35,7 @@ internal abstract class CompositeCistronInterpreter<TResult> : ICistronInterpret
         Requires(interpreters != null);
         Requires(AllNotNull(interpreters));
         Requires(interpreters.Length != 0);
-        RequiresForAll(interpreters.Take(interpreters.Length - 1), interpreter => interpreter.MaxBitCount > (ushort)short.MaxValue, "The interpreter at index {0} will consume the whole cistron, and will leave no bits for the remaining interpreters");
+        RequiresForAll(interpreters.Take(interpreters.Length - 1), interpreter => interpreter.MaxBitCount < (ushort)short.MaxValue, "The interpreter at index {0} will consume the whole cistron, and will leave no bits for the remaining interpreters");
 
         this.interpreters = interpreters;
         this.MinBitCount = interpreters.Sum(i => i.MinBitCount);

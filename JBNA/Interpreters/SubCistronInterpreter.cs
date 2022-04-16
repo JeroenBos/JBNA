@@ -7,6 +7,20 @@
 /// </summary>
 public class SubCistronInterpreter : ICistronInterpreter<ImmutableArray<BitArrayReadOnlySegment>>
 {
+    [DebuggerHidden]
+    public static ICistronInterpreter<(T, U)> Create<T, U>(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter)
+    {
+        return Create(nature, tInterpreter, uInterpreter, (t, u) => (t, u));
+    }
+    [DebuggerHidden]
+    public static ICistronInterpreter<TCombined> Create<T, U, TCombined>(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter, Func<T, U, TCombined> combiner)
+    {
+        return new SubCistronInterpreter<T, U, TCombined>(nature, tInterpreter, uInterpreter, combiner);
+    }
+
+
+
+
     public ImmutableArray<ICistronInterpreter> SubInterpreters { get; }
     /// <summary>
     /// The number of cistrons that are mandatory. The remaining interpreters can be foregone.
@@ -78,20 +92,11 @@ public class SubCistronInterpreter : ICistronInterpreter<ImmutableArray<BitArray
         return Split(cistronReader).ToImmutableArray();
     }
 
-    [DebuggerHidden]
-    public static SubCistronInterpreter<T, U, (T, U)> Create<T, U>(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter)
-    {
-        return Create(nature, tInterpreter, uInterpreter, (t, u) => (t, u));
-    }
-    [DebuggerHidden]
-    public static SubCistronInterpreter<T, U, TCombined> Create<T, U, TCombined>(Nature nature, ICistronInterpreter<T> tInterpreter, ICistronInterpreter<U> uInterpreter, Func<T, U, TCombined> combiner)
-    {
-        return new SubCistronInterpreter<T, U, TCombined>(nature, tInterpreter, uInterpreter, combiner);
-    }
+
 }
 
 /// <inheritdoc />
-public class SubCistronInterpreter<T, U, TCombined> : SubCistronInterpreter, ICistronInterpreter<TCombined>
+internal class SubCistronInterpreter<T, U, TCombined> : SubCistronInterpreter, ICistronInterpreter<TCombined>
 {
     private readonly Func<T, U, TCombined> combiner;
 
@@ -110,7 +115,8 @@ public class SubCistronInterpreter<T, U, TCombined> : SubCistronInterpreter, ICi
         return result;
     }
 }
-public class SubCistronInterpreter<T, U, V, TCombined> : SubCistronInterpreter, ICistronInterpreter<TCombined>
+/// <inheritdoc />
+internal class SubCistronInterpreter<T, U, V, TCombined> : SubCistronInterpreter, ICistronInterpreter<TCombined>
 {
     private readonly Func<T, U, V, TCombined> combiner;
 

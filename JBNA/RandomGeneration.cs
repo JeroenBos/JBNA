@@ -3,13 +3,14 @@
 internal class RandomGeneration
 {
     public const ulong MaxByteCountForAnything = 10000;
-    public static Nature CreateRandomHaploidNature(IReadOnlyList<CistronSpec> specs, Random random, bool add_defaults = true)
+    public static Nature CreateRandomHaploidNature(IReadOnlyList<CistronSpec.Builder> specs, Random random, bool add_defaults = true)
     {
         // Add defaults
         var cistronSpecByAlleles = specs.ToDictionary(cistron => cistron.Allele);
         if (add_defaults)
         {
-            var defaultCistronSpecs = CistronSpec.Defaults.Where(cistron => !cistronSpecByAlleles.ContainsKey(cistron.Allele));
+            var defaultCistronSpecs = CistronSpec.Defaults.Where(cistron => !cistronSpecByAlleles.ContainsKey(cistron.Allele))
+                                                          .Select(spec => (CistronSpec.Builder)spec);
             specs = specs.Concat(defaultCistronSpecs).ToArray();
         }
 
@@ -27,13 +28,13 @@ internal class RandomGeneration
         var nature = new Nature(specs, random);
         return nature;
     }
-    public static HaploidalGenome CreateRandomHaploid(Nature nature, Random random)
+    public static HaploidalGenome CreateRandomHaploid(Nature nature)
     {
         var genome = new HaploidalGenome(nature, out List<Chromosome> chromosomes);
 
-        var sequencesToInsert = nature.Objects.Values
-                                              .Select(spec => GetInitialEncoding(spec, nature, random))
-                                              .ToList();
+        var sequencesToInsert = nature.Codons.Specs.Values
+                                                     .Select(spec => GetInitialEncoding(spec, nature, nature.Random))
+                                                     .ToList();
 
         ulong nonJunkLength = sequencesToInsert.Aggregate(0UL, (s, array) => s + array.Length);
         long junkLength = getJunkLength(nature, nonJunkLength);
@@ -41,21 +42,21 @@ internal class RandomGeneration
 
 
         // zip them into chromosomes
-        var insertionIndices = getInsertionIndices(sequencesToInsert, junkLength, random);
+        var insertionIndices = getInsertionIndices(sequencesToInsert, junkLength, nature.Random);
 
 
-        var chromosomeData = BitArray.InitializeRandom(totalLength, random); // the junk
+        var chromosomeData = BitArray.InitializeRandom(totalLength, nature.Random); // the junk
         foreach (var (insertionIndex, sequence) in Enumerable.Zip(insertionIndices, sequencesToInsert))
         {
             sequence.CopyTo(chromosomeData, insertionIndex);
         }
-        chromosomes.Add(new Chromosome(chromosomeData, genome.CodonCollection));
+        chromosomes.Add(new Chromosome(chromosomeData, genome.Nature));
         return genome;
 
 
         static long getJunkLength(Nature nature, ulong nonJunkLength)
         {
-            if (nature.CistronsByAllele.TryGetValue(Allele.JunkRatio, out CistronSpec? junkJBNARatio))
+            if (nature.Codons.CistronsByAllele.TryGetValue(Allele.JunkRatio, out CistronSpec? junkJBNARatio))
             {
                 var interpreter = (ICistronInterpreter<float>)junkJBNARatio.Interpreter;
                 var encodedJunkRatio = interpreter.InitialEncodedValue;
@@ -81,7 +82,7 @@ internal class RandomGeneration
     }
     private static BitArrayReadOnlySegment GetInitialEncoding(CistronSpec spec, Nature nature, Random random)
     {
-        if (!nature.ReverseObjects.TryGetValue(spec, out TCodon startCodon))
+        if (!nature.Codons.SpecsReversed.TryGetValue(spec, out TCodon startCodon))
             throw new Exception($"No start codon assigned to '{spec.Allele}'");
 
         BitArrayReadOnlySegment? initialEncoding = spec.Interpreter.InitialEncodedValue;

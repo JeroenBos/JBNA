@@ -6,6 +6,17 @@ namespace JBNA;
 /// </summary>
 public class CistronSpec
 {
+    public record Builder(Allele Allele, Func<Nature, ICistronInterpreter> GetInterpreter, bool Required = true, bool Meta = false, IMultiCistronMerger? Merger = null)
+    {
+        public CistronSpec Build(Nature nature)
+        {
+            return new CistronSpec(Allele, GetInterpreter(nature), Required, Meta, Merger);
+        }
+        public static implicit operator Builder(CistronSpec spec)
+        {
+            return new Builder(spec.Allele, _ => spec.Interpreter, spec.Required, spec.Meta, spec.Merger);
+        }
+    }
     // these are the defaults in case the alleles are missing
     internal const float DefaultMutationRate = 0.01f;
     internal const float DefaultMutationRateStdDev = DefaultMutationRate / 4;
