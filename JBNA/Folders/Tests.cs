@@ -128,24 +128,36 @@ namespace JBNA.Tests
         [Fact]
         public void CanApproximateSineWave()
         {
-            Func<double, double> realFunction = Math.Sin;
-            const int Length = 100;
+            Func<double, double> realFunction = x => Math.Sin(x * Math.PI / 2);
+            const int Samples = 100;
             const int maxTime = 10000;
             const int populationSize = 100;
 
+            IIntegratedDimensionfulDiscreteFunction perfect = new HistogramFunction.Values(new float[]
+            {
+                0, 1, 0, -1
+            }, true);
+            var perfectScore = scoreFunction(perfect);
 
-            var spec = new CistronSpec.Builder(Allele.CustomRangeStart, _ => HistogramFunction.ScalingFunctionInterpreter);
+
+
+            var spec = new CistronSpec.Builder(Allele.CustomRangeStart, _ => HistogramFunction.Create());
             var nature = RandomGeneration.CreateRandomHaploidNature(spec.ToSingletonList(), new Random(1), add_defaults: false);
             float scoreFunction(IDimensionfulDiscreteFunction f)
             {
-                var samplingPoints = Enumerable.Range(0, Length);
+                var samplingPoints = Enumerable.Range(0, Samples);
                 float difference = 0;
+                Func<float, float> wrappedF = p => f.Invoke(new OneDimensionalDiscreteQuantity((int)p, Samples));
                 foreach (var point in samplingPoints)
                 {
-                    var prediction = f.Invoke(new OneDimensionalDiscreteQuantity(point, Length));
+                    var prediction = wrappedF(point);
                     var real = (float)realFunction(point);
                     var diff = Math.Abs(prediction - real);
                     difference += diff;
+                }
+                if(Math.Abs(Math.Abs(difference) - 63) < 1)
+                {
+
                 }
                 var score = -difference; // because higher is better
                 return score;

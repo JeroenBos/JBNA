@@ -49,6 +49,7 @@ internal class HistogramFunction : ICistronInterpreter<DimensionfulFunction>, IC
         int valueBitCount = (int)(minValueBitCount + cistronReader.ReadUInt32(valueBitCountBitCount)); // in minValueBitCount + [0, 15]
         ulong originalindex2 = cistronReader.Position;
 
+        // maybe the majority is not being read at all. and none of those mutations in the majority have any effect?
         int valueCount = checked((int)(cistronReader.RemainingLength / (ulong)valueBitCount));
         float[] values;
         if (valueCount == 0)
@@ -67,7 +68,7 @@ internal class HistogramFunction : ICistronInterpreter<DimensionfulFunction>, IC
         return new Values(values, repeats);
     }
 
-    private sealed class Values : IIntegratedDimensionfulDiscreteFunction
+    internal sealed class Values : IIntegratedDimensionfulDiscreteFunction
     {
         private readonly float[] values;
         private readonly bool repeats;

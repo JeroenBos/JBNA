@@ -9,6 +9,7 @@ internal class Evolution<P> where P : IHomologousSet<P>
     private readonly int maxAttemptsUntilDrawGenomeIsInviable;
     private readonly int maxAttemptsUntilReproducingIsInviable;
     private readonly float fractionOfPopulationToBeReplacedByReproduction;
+    private readonly RandomNewMembersTracker newMembersTracker;
     private Genome<P>[] population;
 
     // some stats
@@ -35,6 +36,7 @@ internal class Evolution<P> where P : IHomologousSet<P>
         this.maxAttemptsUntilDrawGenomeIsInviable = maxAttemptsUntilDrawGenomeIsInviable;
         this.maxAttemptsUntilReproducingIsInviable = maxAttemptsUntilReproducingIsInviable;
         this.fractionOfPopulationToBeReplacedByReproduction = fractionOfPopulationToBeReplacedByReproduction;
+        this.newMembersTracker = new RandomNewMembersTracker(this.population.Length, random);
     }
 
     public float[] Evolve(int maxTime, CancellationToken cancellationToken = default)
@@ -48,7 +50,7 @@ internal class Evolution<P> where P : IHomologousSet<P>
             {
                 Console.Write($"t={t}\t");
                 var scores = Score(); // has side-effects
-                bestScores[t] = scores[0];
+                bestScores[t] = scores.First();
                 cancellationToken.ThrowIfCancellationRequested();
                 Reproduce();
             }
@@ -97,15 +99,14 @@ internal class Evolution<P> where P : IHomologousSet<P>
         var scores = new float[this.population.Length];
         for (int i = 0; i < scores.Length; i++)
         {
-            // minus sign is to get best performing at the beginning (for simplicity) by sorting
-            scores[i] = -this.scoreFunction(this.population[i].Interpret());
+            scores[i] = this.scoreFunction(this.population[i].Interpret());
             maxChromosomeLength = Math.Max(maxChromosomeLength, this.population[i].Chromosomes.Max(c => c.Length));
         }
-        Array.Sort(scores, this.population);
 
-        // undo minus sign
-        for (int i = 0; i < scores.Length; i++)
-            scores[i] *= -1;
+        newMembersTracker.InformAboutScoresBeforeSort(scores);
+        Array.Sort(scores, this.population, InterfaceWraps.GetReversedComparer<float>());
+        newMembersTracker.InformAboutScoresAfterSort(scores);
+
         Console.WriteLine($"top={scores[0]:0}\tμ={scores.Average():0}\tσ={scores.StandardDeviation():0}\tmax_chr_len={maxChromosomeLength}");
         return scores;
     }
@@ -124,12 +125,20 @@ internal class Evolution<P> where P : IHomologousSet<P>
         {
             Console.WriteLine($"{failedCount} out of {reproductionCount} reproduction attempts failed!");
         }
-        additionalPopulation.CopyTo(this.population, this.population.Length - additionalPopulation.Length);
-        
+
+        int randomizedPopulationCount = drawNewRandomPopulation();
+        additionalPopulation.CopyTo(this.population, this.population.Length - additionalPopulation.Length - randomizedPopulationCount);
+
         // update stats
         this.CumulativeSucceededReproductionCount += additionalPopulation.Length;
         this.CumulativeFailedReproductionCount += failedCount;
         this.NumberOfTimesThereWereFailedReproductions += (failedCount == 0 ? 0 : 1);
+    }
+    private int drawNewRandomPopulation()
+    {
+        int count = this.newMembersTracker.GetNumberOfMembersToIntroduce();
+        Populate(this.population.Length - count);
+        return count;
     }
     private (int, int) DrawReproductionPair()
     {
@@ -161,8 +170,8 @@ internal class Evolution<P> where P : IHomologousSet<P>
             var p = (draw(u) + 1) / 2; // shift 1 to the right in domain, so now that's from 0 to 1
             var result = p * size; // scale it by population size
             return (int)result;
-        // A number of random members must be added to each round, until it's not necessary anymore. Am I doing that?
-        // }
+            // A number of random members must be added to each round, until it's not necessary anymore. Am I doing that?
+        }
     }
     private Genome<P>? Reproduce(Genome<P> a, Genome<P> b, int maxRetries)
     {
@@ -180,5 +189,92 @@ internal class Evolution<P> where P : IHomologousSet<P>
             maxRetries--;
         }
         return null;
+    }
+}
+
+/// <summary>
+/// Tracks how the randomly initialized members are doing, and determines how many of them should be inserted in the next round.
+/// </summary>
+sealed class RandomNewMembersTracker
+{
+    private const float maxIntroductionRatio = 0.10f;
+    private const int fadeOutNumberOfSteps = 20;
+    private readonly Random random;
+    private readonly int populationSize;
+    /// <summary>
+    /// The number of successive time steps the randomly initialized members performed worst.
+    /// </summary>
+    private int successiveLastPlaceStepCount = 0;
+    private const int noMemberIntroducedLastStep = -2;
+    private int numberOfMembersIntroducedLastStep = noMemberIntroducedLastStep;
+    private float bestScoreByNewRandomMember = float.NaN;
+    private int timestepLastIntroducedMembers;
+    private bool printedMessage;
+
+    public RandomNewMembersTracker(int populationSize, Random random)
+    {
+        Requires(populationSize > 1);
+        Requires(random != null);
+
+        this.populationSize = populationSize;
+        this.random = random;
+    }
+
+
+    public void InformAboutScoresBeforeSort(IReadOnlyList<float> scores)
+    {
+        Requires(this.numberOfMembersIntroducedLastStep != -1, $"{nameof(GetNumberOfMembersToIntroduce)} must be called first, and must be called before {nameof(InformAboutScoresAfterSort)}");
+        if (this.numberOfMembersIntroducedLastStep == noMemberIntroducedLastStep)
+        {
+            // we're at time=0 now
+            this.bestScoreByNewRandomMember = float.NaN;
+        }
+        else if (numberOfMembersIntroducedLastStep == 0)
+        {
+            this.bestScoreByNewRandomMember = float.NaN;
+        }
+        else
+        {
+            this.bestScoreByNewRandomMember = scores.Take(^numberOfMembersIntroducedLastStep..).Max();
+        }
+    }
+    public void InformAboutScoresAfterSort(IReadOnlyList<float> scores)
+    {
+        Requires(this.numberOfMembersIntroducedLastStep != -1, $"Must be called after {nameof(InformAboutScoresAfterSort)}, and {nameof(GetNumberOfMembersToIntroduce)} must be called first");
+
+        if (!float.IsNaN(this.bestScoreByNewRandomMember))
+        {
+            if (scores.ElementAt(^numberOfMembersIntroducedLastStep) == bestScoreByNewRandomMember)
+            {
+                this.successiveLastPlaceStepCount++;
+            }
+            else
+            {
+                this.successiveLastPlaceStepCount = 0;
+            }
+        }
+        this.numberOfMembersIntroducedLastStep = -1;
+    }
+    public int GetNumberOfMembersToIntroduce()
+    {
+        int numberOfMembersToIntroduce;
+        if (this.successiveLastPlaceStepCount > fadeOutNumberOfSteps)
+        {
+            if (!printedMessage)
+            {
+                Console.WriteLine("Stopping introducing randomized popultation members");
+                printedMessage = true;
+            }
+            numberOfMembersToIntroduce = 0;
+        }
+        else
+        {
+            float ratioOfPopulationToIntroduce = Math.Max(0, maxIntroductionRatio * (1 - this.successiveLastPlaceStepCount / fadeOutNumberOfSteps));
+            numberOfMembersToIntroduce = (int)Math.Ceiling(this.populationSize * ratioOfPopulationToIntroduce);
+            this.timestepLastIntroducedMembers++;
+        }
+
+        this.numberOfMembersIntroducedLastStep = numberOfMembersToIntroduce;
+        return numberOfMembersToIntroduce;
     }
 }
