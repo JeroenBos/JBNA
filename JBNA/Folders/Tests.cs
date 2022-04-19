@@ -130,7 +130,7 @@ namespace JBNA.Tests
         {
             Func<double, double> realFunction = x => Math.Sin(x * Math.PI / 2);
             const int Samples = 100;
-            const int maxTime = 10000;
+            const int maxTime = 500;
             const int populationSize = 100;
 
             IIntegratedDimensionfulDiscreteFunction perfect = new HistogramFunction.Values(new float[]
@@ -155,10 +155,6 @@ namespace JBNA.Tests
                     var diff = Math.Abs(prediction - real);
                     difference += diff;
                 }
-                if(Math.Abs(Math.Abs(difference) - 63) < 1)
-                {
-
-                }
                 var score = -difference; // because higher is better
                 return score;
             }
@@ -167,7 +163,7 @@ namespace JBNA.Tests
             var scores = evolution.Evolve(maxTime);
             var finalScore = scores[^1];
             Assert(finalScore < 0, "Something is wrong");
-            Assert(finalScore > -10, "It did not perform well");
+            Assert(finalScore > -1, "It did not perform well");
         }
 
         static Func<object?[], float> CastScoreFunction<T>(Func<T, float> singleElementScoreFunction)
