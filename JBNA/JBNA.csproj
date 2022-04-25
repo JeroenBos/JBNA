@@ -21,8 +21,9 @@
 		<Using Include="JBSnorro.Diagnostics.Contract" Static="true" />
 	</ItemGroup>
   <ItemGroup>
-	  <PackageReference Include="JBSnorro" Version="0.0.13" Condition="'$(Configuration)' != 'Debug'" />
-	  <ProjectReference Include="..\..\JBSnorro\JBSnorro\JBSnorro.csproj" Condition="'$(Configuration)' == 'Debug'" />
+	  <!--<PackageReference Include="JBSnorro" Version="0.0.13" Condition="'$(Configuration)' != 'Debug'" />
+	  <ProjectReference Include="..\..\JBSnorro\JBSnorro\JBSnorro.csproj" Condition="'$(Configuration)' == 'Debug'" />-->
+	  <ProjectReference Include="..\..\JBSnorro\JBSnorro\JBSnorro.csproj" />
   </ItemGroup>
 
   <ItemGroup>

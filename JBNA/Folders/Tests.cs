@@ -128,14 +128,14 @@ namespace JBNA.Tests
         [Fact]
         public void CanApproximateSineWave()
         {
-            Func<double, double> realFunction = x => Math.Sin(x * Math.PI / 2);
+            Func<double, double> realFunction = x => Math.Sin(x * Math.PI / 4);
             const int Samples = 100;
             const int maxTime = 500;
             const int populationSize = 100;
 
             IIntegratedDimensionfulDiscreteFunction perfect = new HistogramFunction.Values(new float[]
             {
-                0, 1, 0, -1
+                0, 0.7f, 1, 0.7f, 0, -0.7f, -1, -0.7f
             }, true);
             var perfectScore = scoreFunction(perfect);
 
