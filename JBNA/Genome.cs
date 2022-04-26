@@ -94,7 +94,7 @@ public class Genome<TPloidality> where TPloidality : IHomologousSet<TPloidality>
     }
     internal object? Interpret(Allele allele)
     {
-        var interpretations = this.Interpret();
+        this.Interpret(); // make sure cache is populated
         var result = SpecIndices.Keys.Select((value, i) => new { value, i })
                                      .Where(p => p.value.Allele == allele)
                                      .Select(p => this.interpretations![p.i])
