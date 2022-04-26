@@ -1,5 +1,5 @@
 ﻿
-namespace JBNA;
+namespace JBNA.Interpreters;
 
 /// <summary>
 /// Represents a function that has a number of values (stepwise).

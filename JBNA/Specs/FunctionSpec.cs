@@ -1,4 +1,6 @@
-﻿namespace JBNA;
+﻿using JBNA.Interpreters;
+
+namespace JBNA;
 using IDiscreteFunction = IIntegratedDimensionfulDiscreteFunction;
 using IContinuousFunction = IIntegratedDimensionfulContinuousFunction;
 
@@ -21,6 +23,9 @@ public class FunctionSpecFactory
     /// Also configuration, e.g. whether the pattern repeats or is stretched to a particular size, could be at the start of the cistron.
     /// </summary>
     public ICistronInterpreter<IDiscreteFunction> FourierFunctionInterpreter { get; }
+    public ICistronInterpreter<IDiscreteFunction> SineFunctionInterpreter { get; }
+    public ICistronInterpreter<IDiscreteFunction> ConstantFunctionInterpreter { get; }
+    public ICistronInterpreter<IDiscreteFunction> StepFunctionInterpreter { get; }
     /// <summary>
     /// An interpreter that assumes self-encoded which function type is to be interpreted.
     /// </summary>
@@ -52,7 +57,6 @@ public class FunctionSpecFactory
     {
         return Pattern1DInterpreter.Create(this.Nature, repeats, patternLength);
     }
-    //public ICistronInterpreter<DimensionfulContinuousFunction> ContinuousPatternInterpreter { get; }
 
 
     internal FunctionSpecFactory(Nature nature, Action<FunctionSpecFactory>? setFunctionFactory)
@@ -62,16 +66,23 @@ public class FunctionSpecFactory
 
         // all functions types:
         this.FourierFunctionInterpreter = FourierFunctionCistronInterpreter.Singleton;
+        this.SineFunctionInterpreter = SineFunction.Singleton;
+        this.ConstantFunctionInterpreter = ConstantFunction.Singleton;
+        this.StepFunctionInterpreter = StepFunction.Singleton;
 
         // aggregate all function types:
         static IEnumerable<ICistronInterpreter<IDiscreteFunction>> all(FunctionSpecFactory @this)
         {
             yield return @this.FourierFunctionInterpreter;
+            yield return @this.ConstantFunctionInterpreter;
+            yield return @this.SineFunctionInterpreter;
+            yield return @this.StepFunctionInterpreter;
         }
         this.discreteFunctionTypes = all(this).ToImmutableArray();
         this.DiscreteFunctionInterpreter = ChoiceCistronInterpreter.Create(discreteFunctionTypes, reader => reader.ReadInt32(this.Nature.FunctionTypeBitCount) % this.discreteFunctionTypes.Length);
         this.continuousFunctionTypes = discreteFunctionTypes.OfType<ICistronInterpreter<IContinuousFunction>>().ToImmutableArray();
         this.ContinuousFunctionInterpreter = ChoiceCistronInterpreter.Create(continuousFunctionTypes, reader => reader.ReadInt32(this.Nature.FunctionTypeBitCount) % this.continuousFunctionTypes.Length);
+        Assert(this.continuousFunctionTypes.Count() == 4);
 
         // all function-derived
         this.DiscretePatternInterpreter = Pattern1DInterpreter.Create(this.Nature, null as bool?);
@@ -85,7 +96,7 @@ public class FunctionSpecFactory
     private ICistronInterpreter<Func<int, float>> createInterpretImplicitlyRanged1DFunctionInterpreter()
     {
         return CompositeCistronInterpreter.Create(Int32Interpreter.Create(Nature.FunctionRangeBitCount), Int32Interpreter.Create(Nature.FunctionRangeBitCount), Nature.FunctionFactory.DiscreteFunctionInterpreter, Combiner);
-        
+
         Func<int, float> Combiner(int extremum1, int extremum2, IDiscreteFunction f)
         {
             const int minimumRangeDimensionality = 4; // to require less bits to represent the range, because the dimensionality will probably never be under this

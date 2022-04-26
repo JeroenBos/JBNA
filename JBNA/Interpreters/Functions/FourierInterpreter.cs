@@ -1,4 +1,4 @@
-﻿namespace JBNA;
+﻿namespace JBNA.Interpreters;
 
 internal class FourierFunctionCistronInterpreter : ICistronInterpreter<DimensionfulFunction>, ICistronInterpreter<DimensionfulContinuousFunction>, ICistronInterpreter<IDimensionfulContinuousFunction>, ICistronInterpreter<IDimensionfulDiscreteFunction>, ICistronInterpreter<IIntegratedDimensionfulDiscreteFunction>, ICistronInterpreter<IIntegratedDimensionfulContinuousFunction>
 {

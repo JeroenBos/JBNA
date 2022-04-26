@@ -1,12 +1,10 @@
 ﻿namespace JBNA.Interpreters;
 
 
-internal class SineFunction : ICistronInterpreter<DimensionfulFunction>, ICistronInterpreter<DimensionfulContinuousFunction>, ICistronInterpreter<IDimensionfulContinuousFunction>, ICistronInterpreter<IDimensionfulDiscreteFunction>, ICistronInterpreter<IIntegratedDimensionfulDiscreteFunction>, ICistronInterpreter<IIntegratedDimensionfulContinuousFunction>
+internal class ConstantFunction : ICistronInterpreter<DimensionfulFunction>, ICistronInterpreter<DimensionfulContinuousFunction>, ICistronInterpreter<IDimensionfulContinuousFunction>, ICistronInterpreter<IDimensionfulDiscreteFunction>, ICistronInterpreter<IIntegratedDimensionfulDiscreteFunction>, ICistronInterpreter<IIntegratedDimensionfulContinuousFunction>
 {
-    public static SineFunction Singleton { get; } = new SineFunction();
-    // wellll what if there's a bitCount per number, but we only read 2 or 3. what about the remainder of the bits then? :S
-    // maybe just do a simple minCount, and divide the bits up over the 3 numbers equally?
-    private const int numberOfNumbers = 3;
+    public static ConstantFunction Singleton { get; } = new ConstantFunction();
+    private const int numberOfNumbers = 1;
     private const int minBitsPerNumber = 3;
     private const int maxBitsPerNumber = 12;
     public ulong MinBitCount => numberOfNumbers * minBitsPerNumber;
@@ -18,13 +16,11 @@ internal class SineFunction : ICistronInterpreter<DimensionfulFunction>, ICistro
             throw new ArgumentException();
 
         int bitsPerNumber = (int)cistronReader.RemainingLength / numberOfNumbers;
-        var amplitude = cistronReader.ReadSingle(bitsPerNumber);
-        var wavelength = cistronReader.ReadSingle(bitsPerNumber);
-        var phase = cistronReader.ReadSingle(bitsPerNumber);
+        var value = cistronReader.ReadSingle(bitsPerNumber);
 
-        return new IntegratedDimensionfulDiscreteFunction(amplitude, wavelength, phase);
+        return new IntegratedDimensionfulDiscreteFunction(value);
     }
-    record IntegratedDimensionfulDiscreteFunction(float amplitude, float wavelength, float phase) : IIntegratedDimensionfulDiscreteFunction, IIntegratedDimensionfulContinuousFunction
+    record IntegratedDimensionfulDiscreteFunction(float value) : IIntegratedDimensionfulDiscreteFunction, IIntegratedDimensionfulContinuousFunction
     {
         // TODO: should NormalizationConstant depend on the range of the input dimension (i.e. the domain)?
         public float NormalizationConstant => throw new NotImplementedException();
@@ -35,11 +31,12 @@ internal class SineFunction : ICistronInterpreter<DimensionfulFunction>, ICistro
         }
         public float Invoke(OneDimensionalContinuousQuantity arg)
         {
-            return amplitude * (float)Math.Sin(wavelength * arg.Value / arg.Length + phase);
+            // the delta is a fraction of the domain, not an absolute value _in_ the domain
+            // I guess is the domain has infinite measure, the it should be an absolute value? probably not practical
+            return value;
         }
     }
-
-    private SineFunction() { }
+    private ConstantFunction() { }
     DimensionfulFunction ICistronInterpreter<DimensionfulFunction>.Interpret(BitReader cistronReader) => Interpret(cistronReader).Invoke;
     IDimensionfulDiscreteFunction ICistronInterpreter<IDimensionfulDiscreteFunction>.Interpret(BitReader cistronReader) => Interpret(cistronReader);
     IIntegratedDimensionfulDiscreteFunction ICistronInterpreter<IIntegratedDimensionfulDiscreteFunction>.Interpret(BitReader cistronReader) => Interpret(cistronReader);
